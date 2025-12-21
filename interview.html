@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Daily Interview - FieldVoice Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-recording {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.5); opacity: 0; }
+        }
+        .recording-pulse::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse-recording 1.5s ease-out infinite;
+        }
+        @keyframes slide-up {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slide-up 0.3s ease-out; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-white">
+    <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col">
+
+        <!-- HEADER -->
+        <header class="p-4 flex items-center justify-between">
+            <button onclick="handleExit()" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                <i class="fas fa-times text-white/70"></i>
+            </button>
+            <div class="text-center">
+                <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Daily Interview</p>
+                <p id="currentDate" class="text-xs font-medium text-white/70"></p>
+            </div>
+            <button onclick="skipToReview()" class="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-2">
+                Skip to Review
+            </button>
+        </header>
+
+        <!-- PROGRESS BAR -->
+        <div class="px-6 mb-2">
+            <div class="flex items-center gap-2 mb-2">
+                <span id="stepLabel" class="text-[10px] font-bold text-white/50 uppercase tracking-widest">Step 1 of 8</span>
+                <span id="stepName" class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest"></span>
+            </div>
+            <div class="h-1 bg-white/10 rounded-full overflow-hidden">
+                <div id="progressBar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500" style="width: 12.5%"></div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col p-6 overflow-hidden">
+
+            <!-- QUESTION CARD -->
+            <div id="questionCard" class="flex-1 flex flex-col animate-slide-up">
+                <!-- Question -->
+                <div class="mb-6">
+                    <h2 id="questionText" class="text-2xl font-black leading-tight mb-2"></h2>
+                    <p id="questionHint" class="text-sm text-white/50"></p>
+                </div>
+
+                <!-- Carried Forward Badge (conditional) -->
+                <div id="carriedForwardBadge" class="hidden mb-4">
+                    <div class="inline-flex items-center gap-2 bg-amber-500/20 text-amber-400 px-3 py-1.5 rounded-full text-xs font-bold">
+                        <i class="fas fa-history"></i>
+                        <span>Carried from yesterday</span>
+                    </div>
+                </div>
+
+                <!-- Response Preview / Confirmation Area -->
+                <div id="responseArea" class="flex-1 bg-white/5 rounded-3xl p-4 mb-4 overflow-y-auto hide-scrollbar">
+                    <div id="responseContent" class="text-white/80 text-sm">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Quick Actions (for confirmation steps) -->
+                <div id="quickActions" class="hidden flex gap-2 mb-4">
+                    <button onclick="confirmCarriedData()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-2xl transition-colors">
+                        <i class="fas fa-check mr-2"></i>Confirm
+                    </button>
+                    <button onclick="editCarriedData()" class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-4 rounded-2xl transition-colors">
+                        <i class="fas fa-edit mr-2"></i>Edit
+                    </button>
+                </div>
+
+                <!-- Contractor Chips (for contractor-centric questions) -->
+                <div id="contractorChips" class="hidden flex flex-wrap gap-2 mb-4">
+                    <!-- Dynamic chips -->
+                </div>
+            </div>
+        </main>
+
+        <!-- VOICE INPUT BAR -->
+        <div class="p-4 pb-8 bg-gradient-to-t from-slate-900 via-slate-900/95 to-transparent">
+            <div id="voiceBar" class="relative">
+                <!-- Transcript Display -->
+                <div id="transcriptArea" class="hidden mb-3 bg-white/10 rounded-2xl p-4 text-sm text-white/80 max-h-24 overflow-y-auto">
+                    <span id="liveTranscript"></span>
+                </div>
+
+                <!-- Voice Button Row -->
+                <div class="flex items-center gap-3">
+                    <button id="micButton" onclick="toggleRecording()" class="relative w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/30 transition-all active:scale-95">
+                        <i id="micIcon" class="fas fa-microphone"></i>
+                    </button>
+                    <div class="flex-1">
+                        <p id="voiceStatus" class="text-xs font-bold text-white/50 uppercase tracking-widest mb-0.5">Tap to speak</p>
+                        <p id="voiceHint" class="text-sm text-white/30">Answer with a short voice note</p>
+                    </div>
+                    <button id="nextButton" onclick="goToNextStep()" class="hidden w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center text-white text-xl shadow-lg transition-all active:scale-95">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button id="skipButton" onclick="skipQuestion()" class="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/50 text-sm font-bold transition-all">
+                        N/A
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ CONFIGURATION ============
+        const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+
+        // Interview flow - ordered questions
+        const INTERVIEW_STEPS = [
+            {
+                id: 'weather_confirm',
+                type: 'confirm',
+                question: "Here's today's weather",
+                hint: "We auto-synced this. Confirm or update.",
+                dataKey: 'overview.weather',
+                carryForward: false,
+                extractSchema: { highTemp: 'string', lowTemp: 'string', precipitation: 'string', generalCondition: 'string', jobSiteCondition: 'string' }
+            },
+            {
+                id: 'site_conditions',
+                type: 'voice',
+                question: "How's the job site looking?",
+                hint: "Muddy? Dry? Any access issues?",
+                dataKey: 'overview.weather.jobSiteCondition',
+                examples: ["Site is dry and ready for work", "Still muddy from yesterday's rain", "Ground is soft but workable"],
+                extractSchema: { jobSiteCondition: 'string', adverseConditions: 'string' }
+            },
+            {
+                id: 'contractors_onsite',
+                type: 'voice_multi',
+                question: "Who's on site today?",
+                hint: "Name the contractors working. We'll get details next.",
+                dataKey: 'contractors',
+                carryForward: true,
+                examples: ["HGBM and Boh Bros", "Just the prime contractor today", "Metro Electric, Allied Concrete, and HGBM"],
+                extractSchema: { contractors: ['string'] }
+            },
+            {
+                id: 'contractor_work',
+                type: 'contractor_loop',
+                question: "What did {contractor} work on?",
+                hint: "Describe their activities, crew, and equipment.",
+                dataKey: 'activities',
+                examples: ["Continued excavation at the north basin, had two excavators and about 12 guys", "Poured concrete at pier 4, finished around 2pm"],
+                extractSchema: { narrative: 'string', equipmentSummary: 'string', crewSummary: 'string' }
+            },
+            {
+                id: 'headcounts',
+                type: 'contractor_loop',
+                question: "Headcount for {contractor}?",
+                hint: "Supers, foremen, operators, laborers...",
+                dataKey: 'operations',
+                examples: ["1 super, 2 foremen, 8 laborers", "Just 4 electricians today"],
+                extractSchema: { supers: 'number', foreman: 'number', operators: 'number', laborers: 'number', others: 'number' }
+            },
+            {
+                id: 'equipment',
+                type: 'voice',
+                question: "Any notable equipment today?",
+                hint: "New arrivals, breakdowns, or just confirm what's active.",
+                dataKey: 'equipment',
+                carryForward: true,
+                skippable: true,
+                examples: ["Same equipment as yesterday", "New concrete pump arrived", "The D6 is down for maintenance"],
+                extractSchema: { equipment: [{ model: 'string', quantity: 'number', notes: 'string' }] }
+            },
+            {
+                id: 'issues',
+                type: 'voice',
+                question: "Any delays, issues, or RFIs?",
+                hint: "Problems, weather impacts, waiting on answers...",
+                dataKey: 'generalIssues',
+                skippable: true,
+                defaultNA: true,
+                examples: ["Waiting on RFI 22", "Concrete was 2 hours late", "No issues today"],
+                extractSchema: { issues: ['string'] }
+            },
+            {
+                id: 'inspections',
+                type: 'voice',
+                question: "Any inspections or testing?",
+                hint: "Slump tests, proof rolls, third-party inspections...",
+                dataKey: 'qaqcNotes',
+                skippable: true,
+                defaultNA: true,
+                examples: ["Passed proof roll on section B", "Slump test on load 4 was good", "No testing today"],
+                extractSchema: { notes: ['string'] }
+            },
+            {
+                id: 'safety',
+                type: 'voice',
+                question: "Safety check - any incidents?",
+                hint: "Toolbox talks, near-misses, or all clear.",
+                dataKey: 'safety',
+                defaultValue: { hasIncidents: false, notes: ['No safety incidents reported.'] },
+                examples: ["All clear, no incidents", "Toolbox talk on trench safety", "Minor trip hazard cleared"],
+                extractSchema: { hasIncidents: 'boolean', notes: ['string'] }
+            },
+            {
+                id: 'visitors',
+                type: 'voice',
+                question: "Any visitors or communications?",
+                hint: "Owner reps, inspectors, important calls...",
+                dataKey: 'visitorsRemarks',
+                skippable: true,
+                defaultNA: true,
+                examples: ["Owner rep visited at 10am", "State inspector did walkthrough", "No visitors"],
+                extractSchema: { remarks: ['string'] }
+            },
+            {
+                id: 'photos',
+                type: 'photos',
+                question: "Add progress photos?",
+                hint: "Capture with voice captions. Skip if none today.",
+                dataKey: 'photos',
+                skippable: true
+            }
+        ];
+
+        // Project dictionary for normalization
+        const PROJECT_DICTIONARY = {
+            contractors: {
+                'HGBM': ['hgbm', 'hunt gibbs', 'hunt, gibbs', 'the prime', 'prime contractor', 'general contractor'],
+                'Boh Bros': ['boh', 'boh brothers', 'boh bros'],
+                'Metro Electric': ['metro', 'metro electrical', 'electricians'],
+                'Allied Concrete': ['allied', 'concrete guys', 'concrete sub']
+            },
+            equipment: {
+                'Cat 320 Excavator': ['320', 'cat 320', 'excavator', 'track hoe'],
+                'D6 Dozer': ['d6', 'dozer', 'bulldozer'],
+                'Concrete Pump': ['pump truck', 'concrete pump', 'pumper'],
+                'Compactor': ['roller', 'compactor', 'sheep foot']
+            }
+        };
+
+        // ============ STATE ============
+        let currentStep = 0;
+        let currentContractorIndex = 0;
+        let contractorsOnSite = [];
+        let isRecording = false;
+        let isProcessing = false;
+        let recognition = null;
+        let currentTranscript = '';
+        let todayReport = null;
+        let yesterdayReport = null;
+        let interviewStartTime = null;
+
+        // ============ STORAGE ============
+        function getTodayKey() {
+            return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`;
+        }
+
+        function getYesterdayKey() {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            return `fieldvoice_report_${yesterday.toISOString().split('T')[0]}`;
+        }
+
+        function getReport() {
+            const saved = localStorage.getItem(getTodayKey());
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return createFreshReport();
+                }
+            }
+            return createFreshReport();
+        }
+
+        function getYesterdayReport() {
+            const saved = localStorage.getItem(getYesterdayKey());
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return null;
+                }
+            }
+            // Fallback to legacy key for migration
+            const legacy = localStorage.getItem('fieldvoice_report');
+            if (legacy) {
+                try {
+                    return JSON.parse(legacy);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        function createFreshReport() {
+            return {
+                meta: {
+                    createdAt: new Date().toISOString(),
+                    interviewCompleted: false,
+                    version: 2
+                },
+                overview: {
+                    projectName: "North-South Connector Road Phase 2",
+                    noabProjectNo: "1291",
+                    cnoSolicitationNo: "N/A",
+                    noticeToProceed: "June 27th, 2025",
+                    contractDuration: "467 days",
+                    expectedCompletion: "October 7th, 2026",
+                    contractDayNo: calculateContractDay(),
+                    weatherDays: "0 days",
+                    date: new Date().toLocaleDateString(),
+                    location: "Louis Armstrong New Orleans Int'l Airport",
+                    engineer: "Garver, LLC",
+                    contractor: "Hunt, Gibbs, Boh, & Metro (HGBM)",
+                    startTime: null, // Will be set on first interaction
+                    endTime: null,   // Will be set on interview complete
+                    shiftDuration: null,
+                    completedBy: "Inspector Name, RPR",
+                    weather: {
+                        highTemp: "--",
+                        lowTemp: "--",
+                        precipitation: "0.00\"",
+                        generalCondition: "Syncing...",
+                        jobSiteCondition: "Dry",
+                        adverseConditions: "N/A"
+                    }
+                },
+                contractors: [], // List of contractors on site today
+                activities: [],
+                operations: [],
+                equipment: [],
+                generalIssues: [],
+                communications: [],
+                qaqcNotes: [],
+                safety: { hasIncidents: false, notes: [] },
+                visitorsRemarks: [],
+                photos: []
+            };
+        }
+
+        function calculateContractDay() {
+            const ntp = new Date('2025-06-27');
+            const today = new Date();
+            const diffTime = Math.abs(today - ntp);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return `${diffDays} of 467 days`;
+        }
+
+        function saveReport(report) {
+            localStorage.setItem(getTodayKey(), JSON.stringify(report));
+            // Also save to legacy key for compatibility
+            localStorage.setItem('fieldvoice_report', JSON.stringify(report));
+        }
+
+        // ============ WEATHER AUTO-SYNC ============
+        async function fetchWeather() {
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                });
+
+                const { latitude, longitude } = position.coords;
+                const response = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&temperature_unit=fahrenheit&precipitation_unit=inch`
+                );
+                const data = await response.json();
+
+                const weatherCodes = {
+                    0: 'Clear', 1: 'Mostly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
+                    45: 'Fog', 48: 'Fog', 51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle',
+                    61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain', 80: 'Showers', 95: 'Thunderstorm'
+                };
+
+                // Derive job site condition from precipitation
+                const precip = data.daily.precipitation_sum[0];
+                let jobSiteCondition = 'Dry';
+                if (precip > 0.5) jobSiteCondition = 'Wet';
+                else if (precip > 0.1) jobSiteCondition = 'Damp';
+
+                todayReport.overview.weather = {
+                    highTemp: `${Math.round(data.daily.temperature_2m_max[0])}°F`,
+                    lowTemp: `${Math.round(data.daily.temperature_2m_min[0])}°F`,
+                    precipitation: `${data.daily.precipitation_sum[0].toFixed(2)}"`,
+                    generalCondition: weatherCodes[data.current_weather.weathercode] || 'Cloudy',
+                    jobSiteCondition: jobSiteCondition,
+                    adverseConditions: precip > 0.25 ? 'Rain impact possible' : 'N/A'
+                };
+
+                saveReport(todayReport);
+                return true;
+            } catch (error) {
+                console.error('Weather fetch failed:', error);
+                return false;
+            }
+        }
+
+        // ============ CARRY FORWARD LOGIC ============
+        function carryForwardFromYesterday() {
+            if (!yesterdayReport) return;
+
+            // Fields that persist (project info, common contractors, equipment)
+            // These are already in the fresh report template
+
+            // Carry forward contractor list (they need to reconfirm who's on site)
+            if (yesterdayReport.contractors && yesterdayReport.contractors.length > 0) {
+                todayReport._suggestedContractors = yesterdayReport.contractors;
+            }
+
+            // Carry forward equipment (likely same equipment mobilized)
+            if (yesterdayReport.equipment && yesterdayReport.equipment.length > 0) {
+                todayReport._suggestedEquipment = yesterdayReport.equipment.map(e => ({
+                    ...e,
+                    notes: 'Carried from previous day'
+                }));
+            }
+
+            saveReport(todayReport);
+        }
+
+        // ============ INTERVIEW FLOW ============
+        function getCurrentStepConfig() {
+            return INTERVIEW_STEPS[currentStep];
+        }
+
+        function renderCurrentStep() {
+            const step = getCurrentStepConfig();
+            if (!step) {
+                finishInterview();
+                return;
+            }
+
+            // Update progress
+            document.getElementById('stepLabel').textContent = `Step ${currentStep + 1} of ${INTERVIEW_STEPS.length}`;
+            document.getElementById('stepName').textContent = step.id.replace(/_/g, ' ');
+            document.getElementById('progressBar').style.width = `${((currentStep + 1) / INTERVIEW_STEPS.length) * 100}%`;
+
+            // Update question
+            let questionText = step.question;
+            if (step.type === 'contractor_loop' && contractorsOnSite[currentContractorIndex]) {
+                questionText = step.question.replace('{contractor}', contractorsOnSite[currentContractorIndex]);
+            }
+            document.getElementById('questionText').textContent = questionText;
+            document.getElementById('questionHint').textContent = step.hint;
+
+            // Reset UI
+            document.getElementById('carriedForwardBadge').classList.add('hidden');
+            document.getElementById('quickActions').classList.add('hidden');
+            document.getElementById('contractorChips').classList.add('hidden');
+            document.getElementById('nextButton').classList.add('hidden');
+            document.getElementById('skipButton').classList.toggle('hidden', !step.skippable && step.type !== 'confirm');
+
+            // Render based on step type
+            switch (step.type) {
+                case 'confirm':
+                    renderConfirmStep(step);
+                    break;
+                case 'voice':
+                case 'voice_multi':
+                    renderVoiceStep(step);
+                    break;
+                case 'contractor_loop':
+                    renderContractorLoopStep(step);
+                    break;
+                case 'photos':
+                    renderPhotosStep(step);
+                    break;
+            }
+        }
+
+        function renderConfirmStep(step) {
+            const responseContent = document.getElementById('responseContent');
+            document.getElementById('quickActions').classList.remove('hidden');
+            document.getElementById('skipButton').classList.add('hidden');
+
+            if (step.id === 'weather_confirm') {
+                const weather = todayReport.overview.weather;
+                responseContent.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                            <span class="text-white/50">Condition</span>
+                            <span class="font-bold">${weather.generalCondition}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                            <span class="text-white/50">Temperature</span>
+                            <span class="font-bold">${weather.highTemp} / ${weather.lowTemp}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                            <span class="text-white/50">Precipitation</span>
+                            <span class="font-bold">${weather.precipitation}</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                            <span class="text-white/50">Site Condition</span>
+                            <span class="font-bold text-amber-400">${weather.jobSiteCondition}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderVoiceStep(step) {
+            const responseContent = document.getElementById('responseContent');
+
+            // Show examples
+            if (step.examples && step.examples.length > 0) {
+                responseContent.innerHTML = `
+                    <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3">Example responses</p>
+                    <div class="space-y-2">
+                        ${step.examples.map(ex => `
+                            <div class="flex items-start gap-2 text-white/40">
+                                <i class="fas fa-quote-left text-[8px] mt-1.5 text-indigo-400/50"></i>
+                                <span class="italic">${ex}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            // Show carried forward data if available
+            if (step.carryForward && step.id === 'contractors_onsite' && todayReport._suggestedContractors) {
+                document.getElementById('carriedForwardBadge').classList.remove('hidden');
+                const chips = document.getElementById('contractorChips');
+                chips.classList.remove('hidden');
+                chips.innerHTML = todayReport._suggestedContractors.map(c => `
+                    <button onclick="toggleContractorChip(this, '${c}')" class="contractor-chip px-4 py-2 rounded-full bg-white/10 text-white/70 text-sm font-medium transition-all hover:bg-white/20" data-selected="false">
+                        ${c}
+                    </button>
+                `).join('') + `
+                    <button onclick="addCustomContractor()" class="px-4 py-2 rounded-full border-2 border-dashed border-white/20 text-white/40 text-sm font-medium transition-all hover:border-white/40">
+                        <i class="fas fa-plus mr-1"></i> Other
+                    </button>
+                `;
+            }
+        }
+
+        function renderContractorLoopStep(step) {
+            const responseContent = document.getElementById('responseContent');
+            const contractor = contractorsOnSite[currentContractorIndex];
+
+            // Show what we're asking about
+            responseContent.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                        <i class="fas fa-hard-hat text-2xl text-indigo-400"></i>
+                    </div>
+                    <p class="text-lg font-bold text-white">${contractor}</p>
+                    <p class="text-sm text-white/40 mt-1">Contractor ${currentContractorIndex + 1} of ${contractorsOnSite.length}</p>
+                </div>
+                <div class="space-y-2 mt-4">
+                    ${step.examples.map(ex => `
+                        <div class="flex items-start gap-2 text-white/40 text-sm">
+                            <i class="fas fa-quote-left text-[8px] mt-1.5 text-indigo-400/50"></i>
+                            <span class="italic">${ex}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderPhotosStep(step) {
+            const responseContent = document.getElementById('responseContent');
+            responseContent.innerHTML = `
+                <div class="text-center py-6">
+                    <label class="block cursor-pointer">
+                        <input type="file" accept="image/*" capture="environment" multiple class="hidden" id="photoInput" onchange="handlePhotoCapture(event)">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-indigo-500/20 flex items-center justify-center border-2 border-dashed border-indigo-400/50 hover:bg-indigo-500/30 transition-colors">
+                            <i class="fas fa-camera text-3xl text-indigo-400"></i>
+                        </div>
+                        <p class="text-lg font-bold text-white">Tap to add photos</p>
+                        <p class="text-sm text-white/40 mt-1">Each photo will prompt for a voice caption</p>
+                    </label>
+                </div>
+                <div id="photoPreviewGrid" class="grid grid-cols-2 gap-3 mt-4">
+                    ${todayReport.photos.map((p, i) => `
+                        <div class="relative bg-white/5 rounded-xl overflow-hidden">
+                            <img src="${p.url}" class="w-full aspect-square object-cover">
+                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                                <p class="text-[10px] text-white/80 line-clamp-2">${p.caption || 'No caption'}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // ============ VOICE RECORDING ============
+        function toggleRecording() {
+            if (isProcessing) return;
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech Recognition not supported. Please use Chrome or Safari.");
+                return;
+            }
+
+            // Record start time on first interaction
+            if (!todayReport.overview.startTime) {
+                todayReport.overview.startTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                interviewStartTime = new Date();
+                saveReport(todayReport);
+            }
+
+            currentTranscript = '';
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isRecording = true;
+                updateVoiceUI();
+            };
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                currentTranscript = transcript;
+                document.getElementById('liveTranscript').textContent = transcript || 'Listening...';
+            };
+
+            recognition.onend = () => {
+                if (isRecording) {
+                    // Auto-stopped, process the result
+                    isRecording = false;
+                    processVoiceInput();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                isRecording = false;
+                updateVoiceUI();
+            };
+
+            recognition.start();
+        }
+
+        function stopRecording() {
+            if (recognition) {
+                isRecording = false;
+                recognition.stop();
+                recognition = null;
+            }
+        }
+
+        async function processVoiceInput() {
+            const transcript = currentTranscript.trim();
+            if (!transcript) {
+                updateVoiceUI();
+                return;
+            }
+
+            isProcessing = true;
+            updateVoiceUI();
+
+            const step = getCurrentStepConfig();
+            const result = await processWithGemini(transcript, step);
+
+            if (result) {
+                applyStepResult(step, result);
+            }
+
+            isProcessing = false;
+            currentTranscript = '';
+            updateVoiceUI();
+        }
+
+        function updateVoiceUI() {
+            const micButton = document.getElementById('micButton');
+            const micIcon = document.getElementById('micIcon');
+            const voiceStatus = document.getElementById('voiceStatus');
+            const voiceHint = document.getElementById('voiceHint');
+            const transcriptArea = document.getElementById('transcriptArea');
+            const nextButton = document.getElementById('nextButton');
+
+            if (isProcessing) {
+                micButton.className = 'relative w-16 h-16 rounded-full bg-indigo-600/50 flex items-center justify-center text-white text-2xl cursor-not-allowed';
+                micIcon.className = 'fas fa-spinner fa-spin';
+                voiceStatus.textContent = 'Processing...';
+                voiceHint.textContent = 'Organizing your notes';
+                transcriptArea.classList.add('hidden');
+            } else if (isRecording) {
+                micButton.className = 'recording-pulse relative w-16 h-16 rounded-full bg-red-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-red-500/50';
+                micIcon.className = 'fas fa-stop';
+                voiceStatus.textContent = 'Listening...';
+                voiceHint.textContent = 'Tap to stop';
+                transcriptArea.classList.remove('hidden');
+            } else {
+                micButton.className = 'relative w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-500/30 transition-all active:scale-95';
+                micIcon.className = 'fas fa-microphone';
+                voiceStatus.textContent = 'Tap to speak';
+                voiceHint.textContent = 'Answer with a short voice note';
+                transcriptArea.classList.add('hidden');
+
+                // Show next button if step has data
+                const step = getCurrentStepConfig();
+                if (step && hasStepData(step)) {
+                    nextButton.classList.remove('hidden');
+                    nextButton.classList.add('flex');
+                }
+            }
+        }
+
+        function hasStepData(step) {
+            switch (step.id) {
+                case 'contractors_onsite':
+                    return contractorsOnSite.length > 0;
+                case 'contractor_work':
+                    return todayReport.activities.some(a => a.contractor === contractorsOnSite[currentContractorIndex]);
+                case 'headcounts':
+                    return todayReport.operations.some(o => o.contractor === contractorsOnSite[currentContractorIndex]);
+                case 'equipment':
+                    return todayReport.equipment.length > 0;
+                case 'issues':
+                    return todayReport.generalIssues.length > 0;
+                case 'inspections':
+                    return todayReport.qaqcNotes.length > 0;
+                case 'safety':
+                    return todayReport.safety.notes.length > 0;
+                case 'visitors':
+                    return todayReport.visitorsRemarks.length > 0;
+                default:
+                    return false;
+            }
+        }
+
+        // ============ GEMINI PROCESSING ============
+        async function processWithGemini(transcript, step) {
+            const systemInstruction = `
+You are a construction field report assistant. Extract structured data from the inspector's spoken notes.
+
+RULES:
+1. Extract ONLY information mentioned in the transcript
+2. Normalize contractor names using known aliases (HGBM = Hunt Gibbs Boh Metro, Boh Bros = Boh Brothers, etc.)
+3. For numbers, extract exact values mentioned
+4. For headcounts: map "super/superintendent" to supers, "foreman" to foreman, "operators" to operators, "laborers/workers" to laborers
+5. If user says "no", "none", "nothing", or "N/A", return appropriate empty/false values
+6. Return ONLY valid JSON matching the schema
+
+CONTEXT: ${step.id}
+SCHEMA: ${JSON.stringify(step.extractSchema)}
+`;
+
+            const prompt = `Transcript: "${transcript}"
+
+Extract data matching the schema. Return only JSON.`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: systemInstruction + '\n\n' + prompt }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+                return JSON.parse(text);
+            } catch (error) {
+                console.error('Gemini API error:', error);
+                // Fallback: treat transcript as raw text
+                return { raw: transcript };
+            }
+        }
+
+        // ============ APPLY STEP RESULTS ============
+        function applyStepResult(step, result) {
+            const responseContent = document.getElementById('responseContent');
+
+            switch (step.id) {
+                case 'site_conditions':
+                    if (result.jobSiteCondition) {
+                        todayReport.overview.weather.jobSiteCondition = result.jobSiteCondition;
+                    }
+                    if (result.adverseConditions) {
+                        todayReport.overview.weather.adverseConditions = result.adverseConditions;
+                    }
+                    showConfirmation(`Site condition: ${result.jobSiteCondition || 'Updated'}`);
+                    break;
+
+                case 'contractors_onsite':
+                    if (result.contractors && Array.isArray(result.contractors)) {
+                        contractorsOnSite = result.contractors.map(c => normalizeContractorName(c));
+                        todayReport.contractors = contractorsOnSite;
+                    }
+                    showConfirmation(`${contractorsOnSite.length} contractors on site`);
+                    break;
+
+                case 'contractor_work':
+                    const contractor = contractorsOnSite[currentContractorIndex];
+                    todayReport.activities.push({
+                        contractor: contractor,
+                        trade: 'General',
+                        narrative: result.narrative || result.raw || '',
+                        equipmentSummary: result.equipmentSummary || '',
+                        crewSummary: result.crewSummary || ''
+                    });
+                    showConfirmation(`Work logged for ${contractor}`);
+                    break;
+
+                case 'headcounts':
+                    const hcContractor = contractorsOnSite[currentContractorIndex];
+                    todayReport.operations.push({
+                        contractor: hcContractor,
+                        trade: 'General',
+                        supers: result.supers || 0,
+                        foreman: result.foreman || 0,
+                        operators: result.operators || 0,
+                        laborers: result.laborers || 0,
+                        others: result.others || 0
+                    });
+                    const total = (result.supers || 0) + (result.foreman || 0) + (result.operators || 0) + (result.laborers || 0) + (result.others || 0);
+                    showConfirmation(`${total} workers logged for ${hcContractor}`);
+                    break;
+
+                case 'equipment':
+                    if (result.equipment && Array.isArray(result.equipment)) {
+                        result.equipment.forEach(eq => {
+                            todayReport.equipment.push({
+                                contractor: contractorsOnSite[0] || 'HGBM',
+                                model: eq.model || 'Equipment',
+                                quantity: eq.quantity || 1,
+                                notes: eq.notes || ''
+                            });
+                        });
+                    } else if (result.raw) {
+                        todayReport.equipment.push({
+                            contractor: contractorsOnSite[0] || 'HGBM',
+                            model: result.raw,
+                            quantity: 1,
+                            notes: ''
+                        });
+                    }
+                    showConfirmation(`Equipment logged`);
+                    break;
+
+                case 'issues':
+                    if (result.issues && Array.isArray(result.issues)) {
+                        todayReport.generalIssues.push(...result.issues);
+                    } else if (result.raw && !result.raw.toLowerCase().includes('no ') && !result.raw.toLowerCase().includes('none')) {
+                        todayReport.generalIssues.push(result.raw);
+                    }
+                    showConfirmation(`Issues logged`);
+                    break;
+
+                case 'inspections':
+                    if (result.notes && Array.isArray(result.notes)) {
+                        todayReport.qaqcNotes.push(...result.notes);
+                    } else if (result.raw && !result.raw.toLowerCase().includes('no ') && !result.raw.toLowerCase().includes('none')) {
+                        todayReport.qaqcNotes.push(result.raw);
+                    }
+                    showConfirmation(`Inspections logged`);
+                    break;
+
+                case 'safety':
+                    if (result.hasIncidents !== undefined) {
+                        todayReport.safety.hasIncidents = result.hasIncidents;
+                    }
+                    if (result.notes && Array.isArray(result.notes)) {
+                        todayReport.safety.notes.push(...result.notes);
+                    } else if (result.raw) {
+                        todayReport.safety.notes.push(result.raw);
+                        if (result.raw.toLowerCase().includes('incident') || result.raw.toLowerCase().includes('injury')) {
+                            todayReport.safety.hasIncidents = true;
+                        }
+                    }
+                    showConfirmation(todayReport.safety.hasIncidents ? 'Incident reported' : 'No incidents');
+                    break;
+
+                case 'visitors':
+                    if (result.remarks && Array.isArray(result.remarks)) {
+                        todayReport.visitorsRemarks.push(...result.remarks);
+                    } else if (result.raw && !result.raw.toLowerCase().includes('no ') && !result.raw.toLowerCase().includes('none')) {
+                        todayReport.visitorsRemarks.push(result.raw);
+                    }
+                    showConfirmation(`Visitors/communications logged`);
+                    break;
+            }
+
+            saveReport(todayReport);
+
+            // Show next button
+            document.getElementById('nextButton').classList.remove('hidden');
+            document.getElementById('nextButton').classList.add('flex');
+        }
+
+        function showConfirmation(message) {
+            const responseContent = document.getElementById('responseContent');
+            responseContent.innerHTML = `
+                <div class="flex items-center justify-center py-8">
+                    <div class="text-center">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                            <i class="fas fa-check text-3xl text-emerald-400"></i>
+                        </div>
+                        <p class="text-lg font-bold text-white">${message}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function normalizeContractorName(name) {
+            const lower = name.toLowerCase().trim();
+            for (const [canonical, aliases] of Object.entries(PROJECT_DICTIONARY.contractors)) {
+                if (aliases.some(alias => lower.includes(alias)) || lower.includes(canonical.toLowerCase())) {
+                    return canonical;
+                }
+            }
+            return name.trim();
+        }
+
+        // ============ NAVIGATION ============
+        function confirmCarriedData() {
+            goToNextStep();
+        }
+
+        function editCarriedData() {
+            // Show voice input for editing
+            const step = getCurrentStepConfig();
+            document.getElementById('quickActions').classList.add('hidden');
+            renderVoiceStep(step);
+        }
+
+        function goToNextStep() {
+            const step = getCurrentStepConfig();
+
+            // Handle contractor loop steps
+            if (step.type === 'contractor_loop') {
+                currentContractorIndex++;
+                if (currentContractorIndex < contractorsOnSite.length) {
+                    // More contractors to process
+                    renderCurrentStep();
+                    return;
+                }
+                // Reset for next contractor loop step
+                currentContractorIndex = 0;
+            }
+
+            // Move to next step
+            currentStep++;
+            if (currentStep >= INTERVIEW_STEPS.length) {
+                finishInterview();
+            } else {
+                renderCurrentStep();
+            }
+        }
+
+        function skipQuestion() {
+            const step = getCurrentStepConfig();
+
+            // Apply default N/A value if defined
+            if (step.defaultNA) {
+                switch (step.id) {
+                    case 'issues':
+                        // Leave empty - will show "No issues reported"
+                        break;
+                    case 'inspections':
+                        // Leave empty
+                        break;
+                    case 'visitors':
+                        // Leave empty
+                        break;
+                }
+            }
+
+            if (step.defaultValue) {
+                if (step.id === 'safety') {
+                    todayReport.safety = step.defaultValue;
+                    saveReport(todayReport);
+                }
+            }
+
+            goToNextStep();
+        }
+
+        function toggleContractorChip(btn, contractor) {
+            const isSelected = btn.dataset.selected === 'true';
+            btn.dataset.selected = !isSelected;
+
+            if (!isSelected) {
+                btn.className = 'contractor-chip px-4 py-2 rounded-full bg-indigo-500 text-white text-sm font-bold transition-all';
+                if (!contractorsOnSite.includes(contractor)) {
+                    contractorsOnSite.push(contractor);
+                }
+            } else {
+                btn.className = 'contractor-chip px-4 py-2 rounded-full bg-white/10 text-white/70 text-sm font-medium transition-all hover:bg-white/20';
+                contractorsOnSite = contractorsOnSite.filter(c => c !== contractor);
+            }
+
+            todayReport.contractors = contractorsOnSite;
+            saveReport(todayReport);
+
+            // Show next button if contractors selected
+            if (contractorsOnSite.length > 0) {
+                document.getElementById('nextButton').classList.remove('hidden');
+                document.getElementById('nextButton').classList.add('flex');
+            }
+        }
+
+        function addCustomContractor() {
+            const name = prompt('Enter contractor name:');
+            if (name && name.trim()) {
+                const normalized = normalizeContractorName(name);
+                if (!contractorsOnSite.includes(normalized)) {
+                    contractorsOnSite.push(normalized);
+                    todayReport.contractors = contractorsOnSite;
+                    saveReport(todayReport);
+                    renderCurrentStep();
+                }
+            }
+        }
+
+        // ============ PHOTO HANDLING ============
+        async function handlePhotoCapture(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            for (const file of files) {
+                // Get GPS if available
+                let gps = null;
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                    });
+                    gps = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+                } catch (e) {
+                    console.log('GPS not available');
+                }
+
+                // Read file
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const photoData = {
+                        id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        url: e.target.result,
+                        caption: '',
+                        timestamp: new Date().toISOString(),
+                        date: new Date().toLocaleDateString(),
+                        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+                        gps: gps
+                    };
+
+                    todayReport.photos.push(photoData);
+                    saveReport(todayReport);
+
+                    // Prompt for voice caption
+                    await promptForPhotoCaption(photoData);
+
+                    // Re-render to show new photo
+                    renderCurrentStep();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function promptForPhotoCaption(photoData) {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4';
+                modal.innerHTML = `
+                    <div class="bg-slate-800 rounded-3xl max-w-sm w-full overflow-hidden">
+                        <img src="${photoData.url}" class="w-full aspect-video object-cover">
+                        <div class="p-4">
+                            <p class="text-sm text-white/70 mb-3">Add a voice caption for this photo:</p>
+                            <div class="flex gap-2">
+                                <button id="captionMic" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">
+                                    <i class="fas fa-microphone mr-2"></i>Record Caption
+                                </button>
+                                <button id="captionSkip" class="px-4 bg-white/10 text-white/70 py-3 rounded-xl font-bold">
+                                    Skip
+                                </button>
+                            </div>
+                            <textarea id="captionText" class="hidden w-full mt-3 p-3 bg-white/10 rounded-xl text-white text-sm" rows="2" placeholder="Caption..."></textarea>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                const captionMic = modal.querySelector('#captionMic');
+                const captionSkip = modal.querySelector('#captionSkip');
+                const captionText = modal.querySelector('#captionText');
+
+                let captionRecognition = null;
+
+                captionMic.onclick = () => {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (!SpeechRecognition) {
+                        captionText.classList.remove('hidden');
+                        captionText.focus();
+                        return;
+                    }
+
+                    captionRecognition = new SpeechRecognition();
+                    captionRecognition.continuous = false;
+                    captionRecognition.interimResults = true;
+                    captionRecognition.lang = 'en-US';
+
+                    captionRecognition.onstart = () => {
+                        captionMic.innerHTML = '<i class="fas fa-stop mr-2"></i>Stop';
+                        captionMic.className = 'flex-1 bg-red-500 text-white py-3 rounded-xl font-bold';
+                        captionText.classList.remove('hidden');
+                    };
+
+                    captionRecognition.onresult = (event) => {
+                        let transcript = '';
+                        for (let i = 0; i < event.results.length; i++) {
+                            transcript += event.results[i][0].transcript;
+                        }
+                        captionText.value = transcript;
+                    };
+
+                    captionRecognition.onend = () => {
+                        captionMic.innerHTML = '<i class="fas fa-check mr-2"></i>Save';
+                        captionMic.className = 'flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold';
+                        captionMic.onclick = () => {
+                            // Save caption
+                            const photo = todayReport.photos.find(p => p.id === photoData.id);
+                            if (photo) {
+                                photo.caption = captionText.value;
+                                saveReport(todayReport);
+                            }
+                            modal.remove();
+                            resolve();
+                        };
+                    };
+
+                    captionRecognition.start();
+                };
+
+                captionSkip.onclick = () => {
+                    if (captionRecognition) captionRecognition.stop();
+                    modal.remove();
+                    resolve();
+                };
+            });
+        }
+
+        // ============ FINISH INTERVIEW ============
+        function finishInterview() {
+            // Set end time
+            todayReport.overview.endTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+            // Calculate shift duration
+            if (interviewStartTime) {
+                const endTime = new Date();
+                const durationMs = endTime - interviewStartTime;
+                const hours = Math.floor(durationMs / (1000 * 60 * 60));
+                const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+                todayReport.overview.shiftDuration = `${hours}.${String(minutes).padStart(2, '0')} hours`;
+            }
+
+            // Apply defaults for skipped sections
+            if (todayReport.safety.notes.length === 0) {
+                todayReport.safety = { hasIncidents: false, notes: ['No safety incidents reported.'] };
+            }
+
+            todayReport.meta.interviewCompleted = true;
+            saveReport(todayReport);
+
+            // Redirect to report
+            window.location.href = 'report.html';
+        }
+
+        function handleExit() {
+            if (confirm('Exit interview? Your progress is saved.')) {
+                window.location.href = 'index.html';
+            }
+        }
+
+        function skipToReview() {
+            // Save what we have and go to report
+            saveReport(todayReport);
+            window.location.href = 'report.html';
+        }
+
+        // ============ INIT ============
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Set date
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Load reports
+            todayReport = getReport();
+            yesterdayReport = getYesterdayReport();
+
+            // Carry forward data
+            carryForwardFromYesterday();
+
+            // Fetch weather
+            if (todayReport.overview.weather.generalCondition === 'Syncing...' || todayReport.overview.weather.generalCondition === '--') {
+                await fetchWeather();
+            }
+
+            // Start interview
+            renderCurrentStep();
+        });
+    </script>
+</body>
+</html>

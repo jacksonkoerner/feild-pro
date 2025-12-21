@@ -2,75 +2,158 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FieldVoice Daily Report Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @keyframes pulse-slow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
         }
         .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+        }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
-    <div id="app" class="max-w-xl mx-auto pb-32">
+<body class="gradient-bg min-h-screen">
+    <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col pb-8">
+
         <!-- HEADER -->
-        <header class="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b p-4 flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-black text-slate-900 tracking-tight italic">FIELDVOICE<span class="text-indigo-600 not-italic">PRO</span></h1>
-                <p id="currentDate" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></p>
+        <header class="p-6 pt-8">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-2xl font-black text-white tracking-tight">
+                        FIELDVOICE<span class="text-indigo-400">PRO</span>
+                    </h1>
+                    <p id="currentDate" class="text-sm font-medium text-white/50 mt-1"></p>
+                </div>
+                <button onclick="openSettings()" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/50 hover:bg-white/20 transition-colors">
+                    <i class="fas fa-cog"></i>
+                </button>
             </div>
-            <a href="report.html" class="bg-indigo-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg hover:shadow-indigo-200 active:scale-95 transition-all">
-                Review Report
-            </a>
         </header>
 
-        <main class="p-4 space-y-4">
-            <!-- AUTO-SYNC CARD -->
-            <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm overflow-hidden relative">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Project Status</h2>
-                        <p id="projectName" class="text-lg font-bold text-slate-800 leading-tight"></p>
+        <!-- PROJECT CARD -->
+        <section class="px-6 mb-6">
+            <div class="bg-white/10 backdrop-blur-sm rounded-3xl p-5 border border-white/10">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/30 flex items-center justify-center text-indigo-300">
+                        <i class="fas fa-hard-hat text-lg"></i>
                     </div>
-                    <button id="syncWeatherBtn" class="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors">
-                        <i id="syncIcon" class="fas fa-sync-alt text-slate-400"></i>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
-                        <div class="text-[10px] font-bold text-indigo-400 uppercase">Weather</div>
-                        <div id="weatherCondition" class="text-sm font-black text-indigo-700">Syncing...</div>
-                    </div>
-                    <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
-                        <div class="text-[10px] font-bold text-indigo-400 uppercase">High/Low</div>
-                        <div id="weatherTemp" class="text-sm font-black text-indigo-700">--/--</div>
-                    </div>
-                    <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
-                        <div class="text-[10px] font-bold text-indigo-400 uppercase">Precip</div>
-                        <div id="weatherPrecip" class="text-sm font-black text-indigo-700">0.00"</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Active Project</p>
+                        <h2 id="projectName" class="text-lg font-bold text-white leading-tight truncate"></h2>
+                        <p id="contractDay" class="text-sm text-white/50 mt-1"></p>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- SECTION BUTTONS -->
-            <div id="sectionsGrid" class="grid grid-cols-1 gap-3"></div>
-        </main>
+        <!-- WEATHER CARD -->
+        <section class="px-6 mb-6">
+            <div class="bg-gradient-to-br from-sky-500/20 to-indigo-500/20 backdrop-blur-sm rounded-3xl p-5 border border-white/10">
+                <div class="flex items-center justify-between mb-4">
+                    <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Today's Weather</p>
+                    <button id="syncWeatherBtn" onclick="syncWeather()" class="text-xs text-indigo-300 font-bold flex items-center gap-1 hover:text-indigo-200 transition-colors">
+                        <i id="syncIcon" class="fas fa-sync-alt text-[10px]"></i>
+                        Sync
+                    </button>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="text-center">
+                        <i id="weatherIcon" class="fas fa-sun text-4xl text-amber-400 animate-float"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p id="weatherCondition" class="text-xl font-bold text-white">Loading...</p>
+                        <div class="flex gap-4 mt-1">
+                            <span id="weatherTemp" class="text-sm text-white/70"><i class="fas fa-thermometer-half mr-1"></i>--/--</span>
+                            <span id="weatherPrecip" class="text-sm text-white/70"><i class="fas fa-tint mr-1"></i>0.00"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-        <!-- WALK-AROUND BUTTON -->
-        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full px-6 flex justify-center z-20">
-            <button onclick="alert('Free-form walk-around narration feature coming in Pro v2!')" class="bg-slate-900 text-white flex items-center gap-3 px-8 py-4 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all ring-4 ring-white">
-                <i class="fas fa-microphone text-xl text-indigo-400"></i>
-                <span class="font-bold tracking-tight">Walk-Around Narration</span>
+        <!-- TODAY'S REPORT STATUS -->
+        <section class="px-6 mb-6">
+            <div id="reportStatusCard" class="bg-white/5 backdrop-blur-sm rounded-3xl p-5 border border-white/10">
+                <!-- Dynamic content based on report status -->
+            </div>
+        </section>
+
+        <!-- MAIN ACTION BUTTON -->
+        <section class="px-6 flex-1 flex items-end">
+            <button id="mainActionBtn" onclick="handleMainAction()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-3xl p-6 shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.98] transition-all">
+                <div class="flex items-center justify-center gap-4">
+                    <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
+                        <i id="mainActionIcon" class="fas fa-microphone text-2xl"></i>
+                    </div>
+                    <div class="text-left">
+                        <p id="mainActionTitle" class="text-xl font-black">Start Today's Report</p>
+                        <p id="mainActionSubtitle" class="text-sm text-white/70">5-minute voice interview</p>
+                    </div>
+                </div>
             </button>
+        </section>
+
+        <!-- QUICK ACTIONS -->
+        <section class="px-6 mt-6">
+            <div class="flex gap-3">
+                <a href="report.html" id="viewReportBtn" class="hidden flex-1 bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/10 hover:bg-white/20 transition-colors">
+                    <i class="fas fa-file-alt text-white/50 text-lg mb-2"></i>
+                    <p class="text-xs font-bold text-white/70">View Report</p>
+                </a>
+                <a href="editor.html?section=photos" class="flex-1 bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/10 hover:bg-white/20 transition-colors">
+                    <i class="fas fa-camera text-white/50 text-lg mb-2"></i>
+                    <p class="text-xs font-bold text-white/70">Quick Photo</p>
+                </a>
+                <button onclick="viewHistory()" class="flex-1 bg-white/10 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/10 hover:bg-white/20 transition-colors">
+                    <i class="fas fa-history text-white/50 text-lg mb-2"></i>
+                    <p class="text-xs font-bold text-white/70">History</p>
+                </button>
+            </div>
+        </section>
+
+        <!-- YESTERDAY CARRY-FORWARD BANNER -->
+        <section id="carryForwardBanner" class="hidden px-6 mt-6">
+            <div class="bg-amber-500/20 backdrop-blur-sm rounded-2xl p-4 border border-amber-500/30">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-amber-500/30 flex items-center justify-center">
+                        <i class="fas fa-history text-amber-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-amber-300">Yesterday's data available</p>
+                        <p class="text-xs text-amber-200/70">Contractors and equipment will carry forward</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- HISTORY MODAL -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto">
+        <div class="max-w-lg mx-auto p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-white">Report History</h2>
+                <button onclick="closeHistory()" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/70">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="historyList" class="space-y-3">
+                <!-- Dynamic content -->
+            </div>
         </div>
     </div>
 
     <script>
-        // ============ INITIAL DATA ============
+        // ============ CONFIGURATION ============
         const INITIAL_OVERVIEW = {
             projectName: "North-South Connector Road Phase 2",
             noabProjectNo: "1291",
@@ -78,7 +161,7 @@
             noticeToProceed: "June 27th, 2025",
             contractDuration: "467 days",
             expectedCompletion: "October 7th, 2026",
-            contractDayNo: "19 of 467 days",
+            contractDayNo: calculateContractDay(),
             weatherDays: "0 days",
             date: new Date().toLocaleDateString(),
             location: "Louis Armstrong New Orleans Int'l Airport",
@@ -98,145 +181,323 @@
             },
         };
 
-        const INITIAL_REPORT = {
-            overview: INITIAL_OVERVIEW,
-            activities: [],
-            operations: [],
-            equipment: [],
-            generalIssues: [],
-            communications: [],
-            qaqcNotes: [],
-            safety: { hasIncidents: false, notes: [] },
-            visitorsRemarks: [],
-            photos: [],
-        };
+        function calculateContractDay() {
+            const ntp = new Date('2025-06-27');
+            const today = new Date();
+            const diffTime = Math.abs(today - ntp);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return `Day ${diffDays} of 467`;
+        }
 
-        const SECTIONS = [
-            { id: 'overview', title: 'Site Conditions', icon: 'fa-cloud-sun', prompt: 'How is the site looking today?', examples: ["The site is very muddy after last night's rain.", "High of 85, sunny, working conditions are ideal.", "Surface is dry and ready for paving."] },
-            { id: 'activities', title: 'Work Summary', icon: 'fa-tasks', prompt: 'What was accomplished today?', examples: ["Boh Bros started clearing the North basin.", "HGBM finished the culvert installation at Station 12.", "Electrical sub is running conduit for site lighting."] },
-            { id: 'operations', title: 'Headcounts', icon: 'fa-users', prompt: 'Who is on site today?', examples: ["HGBM has 1 super, 2 foremen, and 12 laborers.", "Metro Plumbing has 4 journeymen on site.", "Survey crew is here with 3 people."] },
-            { id: 'equipment', title: 'Equipment', icon: 'fa-truck-pickup', prompt: 'What machines are moving?', examples: ["Two Cat 320 excavators active all day.", "D6 Dozer arrived at 9 AM.", "Roller is currently idle near the south gate."] },
-            { id: 'issues', title: 'Delays & Issues', icon: 'fa-exclamation-triangle', prompt: 'Any problems or unforeseen events?', examples: ["Waiting on RFI #22 for structural steel.", "Utility strike at 2 PM, resolved by 4 PM.", "Concrete delivery was 2 hours late."] },
-            { id: 'qaqc', title: 'Inspections', icon: 'fa-check-double', prompt: 'What was tested or inspected?', examples: ["Performed slump test on Load #4.", "Proof roll passed on subgrade segment B.", "Checked reinforcement at pier 4."] },
-            { id: 'safety', title: 'Safety & Incidents', icon: 'fa-hard-hat', prompt: 'Everything safe on site?', examples: ["Conducted toolbox talk on trench safety.", "All workers using proper PPE.", "Minor trip hazard identified and cleared."] },
-            { id: 'photos', title: 'Progress Photos', icon: 'fa-camera', prompt: 'Any visual progress to note?', examples: ["Taking photos of the new curb line.", "Documented the utility repair.", "Photo of the completed drainage structure."] },
-        ];
+        // ============ STORAGE ============
+        function getTodayKey() {
+            return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`;
+        }
 
-        // ============ STATE MANAGEMENT ============
+        function getYesterdayKey() {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            return `fieldvoice_report_${yesterday.toISOString().split('T')[0]}`;
+        }
+
         function getReport() {
-            const saved = localStorage.getItem('fieldvoice_report');
+            const saved = localStorage.getItem(getTodayKey());
             if (saved) {
                 try {
                     return JSON.parse(saved);
                 } catch (e) {
-                    return INITIAL_REPORT;
+                    return null;
                 }
             }
-            return INITIAL_REPORT;
+            // Try legacy key
+            const legacy = localStorage.getItem('fieldvoice_report');
+            if (legacy) {
+                try {
+                    const parsed = JSON.parse(legacy);
+                    // Check if it's from today
+                    if (parsed.overview?.date === new Date().toLocaleDateString()) {
+                        return parsed;
+                    }
+                } catch (e) {}
+            }
+            return null;
+        }
+
+        function hasYesterdayReport() {
+            const saved = localStorage.getItem(getYesterdayKey());
+            if (saved) return true;
+            // Check legacy
+            const legacy = localStorage.getItem('fieldvoice_report');
+            if (legacy) {
+                try {
+                    const parsed = JSON.parse(legacy);
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    if (parsed.overview?.date === yesterday.toLocaleDateString()) {
+                        return true;
+                    }
+                } catch (e) {}
+            }
+            return false;
+        }
+
+        function getReportHistory() {
+            const history = [];
+            const keys = Object.keys(localStorage).filter(k => k.startsWith('fieldvoice_report_'));
+            keys.sort().reverse(); // Most recent first
+
+            for (const key of keys.slice(0, 30)) { // Last 30 days
+                try {
+                    const report = JSON.parse(localStorage.getItem(key));
+                    if (report) {
+                        history.push({
+                            key: key,
+                            date: report.overview?.date || key.replace('fieldvoice_report_', ''),
+                            projectName: report.overview?.projectName || 'Unknown Project',
+                            completed: report.meta?.interviewCompleted || false,
+                            contractorCount: report.contractors?.length || 0
+                        });
+                    }
+                } catch (e) {}
+            }
+            return history;
         }
 
         function saveReport(report) {
+            localStorage.setItem(getTodayKey(), JSON.stringify(report));
             localStorage.setItem('fieldvoice_report', JSON.stringify(report));
         }
 
-        // ============ WEATHER FETCH ============
-        async function fetchWeather() {
+        // ============ WEATHER ============
+        async function syncWeather() {
             const syncIcon = document.getElementById('syncIcon');
             syncIcon.classList.add('fa-spin');
 
             try {
-                navigator.geolocation.getCurrentPosition(async (position) => {
-                    const { latitude, longitude } = position.coords;
-                    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`);
-                    const data = await response.json();
-
-                    const weatherCodes = {
-                        0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-                        45: 'Fog', 48: 'Fog', 51: 'Drizzle', 61: 'Rain', 80: 'Showers'
-                    };
-
-                    const report = getReport();
-                    report.overview.weather.highTemp = `${Math.round(data.daily.temperature_2m_max[0])}°C`;
-                    report.overview.weather.lowTemp = `${Math.round(data.daily.temperature_2m_min[0])}°C`;
-                    report.overview.weather.precipitation = `${data.daily.precipitation_sum[0]}mm`;
-                    report.overview.weather.generalCondition = weatherCodes[data.current_weather.weathercode] || 'Cloudy';
-                    saveReport(report);
-
-                    updateWeatherDisplay(report);
-                    syncIcon.classList.remove('fa-spin');
-                }, (err) => {
-                    console.error(err);
-                    syncIcon.classList.remove('fa-spin');
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
                 });
+
+                const { latitude, longitude } = position.coords;
+                const response = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&temperature_unit=fahrenheit&precipitation_unit=inch`
+                );
+                const data = await response.json();
+
+                const weatherCodes = {
+                    0: { text: 'Clear', icon: 'fa-sun', color: 'text-amber-400' },
+                    1: { text: 'Mostly Clear', icon: 'fa-sun', color: 'text-amber-400' },
+                    2: { text: 'Partly Cloudy', icon: 'fa-cloud-sun', color: 'text-amber-300' },
+                    3: { text: 'Overcast', icon: 'fa-cloud', color: 'text-slate-300' },
+                    45: { text: 'Fog', icon: 'fa-smog', color: 'text-slate-400' },
+                    48: { text: 'Fog', icon: 'fa-smog', color: 'text-slate-400' },
+                    51: { text: 'Light Drizzle', icon: 'fa-cloud-rain', color: 'text-blue-300' },
+                    53: { text: 'Drizzle', icon: 'fa-cloud-rain', color: 'text-blue-300' },
+                    55: { text: 'Heavy Drizzle', icon: 'fa-cloud-showers-heavy', color: 'text-blue-400' },
+                    61: { text: 'Light Rain', icon: 'fa-cloud-rain', color: 'text-blue-400' },
+                    63: { text: 'Rain', icon: 'fa-cloud-showers-heavy', color: 'text-blue-500' },
+                    65: { text: 'Heavy Rain', icon: 'fa-cloud-showers-heavy', color: 'text-blue-600' },
+                    80: { text: 'Showers', icon: 'fa-cloud-showers-heavy', color: 'text-blue-500' },
+                    95: { text: 'Thunderstorm', icon: 'fa-bolt', color: 'text-yellow-400' }
+                };
+
+                const weatherInfo = weatherCodes[data.current_weather.weathercode] || { text: 'Cloudy', icon: 'fa-cloud', color: 'text-slate-300' };
+                const highTemp = Math.round(data.daily.temperature_2m_max[0]);
+                const lowTemp = Math.round(data.daily.temperature_2m_min[0]);
+                const precip = data.daily.precipitation_sum[0].toFixed(2);
+
+                // Update UI
+                document.getElementById('weatherCondition').textContent = weatherInfo.text;
+                document.getElementById('weatherTemp').innerHTML = `<i class="fas fa-thermometer-half mr-1"></i>${highTemp}°/${lowTemp}°F`;
+                document.getElementById('weatherPrecip').innerHTML = `<i class="fas fa-tint mr-1"></i>${precip}"`;
+                document.getElementById('weatherIcon').className = `fas ${weatherInfo.icon} text-4xl ${weatherInfo.color} animate-float`;
+
+                // Save to report if exists
+                let report = getReport();
+                if (report) {
+                    report.overview.weather = {
+                        highTemp: `${highTemp}°F`,
+                        lowTemp: `${lowTemp}°F`,
+                        precipitation: `${precip}"`,
+                        generalCondition: weatherInfo.text,
+                        jobSiteCondition: precip > 0.1 ? 'Wet' : 'Dry',
+                        adverseConditions: precip > 0.25 ? 'Rain impact possible' : 'N/A'
+                    };
+                    saveReport(report);
+                }
             } catch (error) {
-                console.error(error);
-                syncIcon.classList.remove('fa-spin');
+                console.error('Weather sync failed:', error);
+                document.getElementById('weatherCondition').textContent = 'Sync failed';
+            }
+
+            syncIcon.classList.remove('fa-spin');
+        }
+
+        // ============ UI UPDATES ============
+        function updateReportStatus() {
+            const report = getReport();
+            const statusCard = document.getElementById('reportStatusCard');
+            const mainActionBtn = document.getElementById('mainActionBtn');
+            const mainActionIcon = document.getElementById('mainActionIcon');
+            const mainActionTitle = document.getElementById('mainActionTitle');
+            const mainActionSubtitle = document.getElementById('mainActionSubtitle');
+            const viewReportBtn = document.getElementById('viewReportBtn');
+
+            if (!report) {
+                // No report started
+                statusCard.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                            <i class="fas fa-clipboard-list text-indigo-300 text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-white">No report started</p>
+                            <p class="text-xs text-white/50">Tap below to begin today's daily report</p>
+                        </div>
+                    </div>
+                `;
+                mainActionIcon.className = 'fas fa-microphone text-2xl';
+                mainActionTitle.textContent = "Start Today's Report";
+                mainActionSubtitle.textContent = "5-minute voice interview";
+                viewReportBtn.classList.add('hidden');
+            } else if (report.meta?.interviewCompleted) {
+                // Report completed
+                const contractorCount = report.contractors?.length || 0;
+                const photoCount = report.photos?.length || 0;
+
+                statusCard.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-emerald-500/30 flex items-center justify-center">
+                            <i class="fas fa-check text-emerald-400 text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-white">Report Complete</p>
+                            <p class="text-xs text-white/50">${contractorCount} contractors · ${photoCount} photos</p>
+                        </div>
+                        <a href="report.html" class="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-400 transition-colors">
+                            View
+                        </a>
+                    </div>
+                `;
+                mainActionIcon.className = 'fas fa-edit text-2xl';
+                mainActionTitle.textContent = "Continue Editing";
+                mainActionSubtitle.textContent = "Add more details or photos";
+                viewReportBtn.classList.remove('hidden');
+                viewReportBtn.classList.add('flex');
+            } else {
+                // Report in progress
+                const progress = calculateProgress(report);
+
+                statusCard.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-amber-500/30 flex items-center justify-center">
+                            <i class="fas fa-spinner fa-pulse text-amber-400 text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-white">Report In Progress</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                    <div class="h-full bg-amber-400 rounded-full" style="width: ${progress}%"></div>
+                                </div>
+                                <span class="text-xs text-white/50">${progress}%</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                mainActionIcon.className = 'fas fa-play text-2xl';
+                mainActionTitle.textContent = "Continue Interview";
+                mainActionSubtitle.textContent = "Pick up where you left off";
+                viewReportBtn.classList.remove('hidden');
+                viewReportBtn.classList.add('flex');
             }
         }
 
-        function updateWeatherDisplay(report) {
-            document.getElementById('weatherCondition').textContent = report.overview.weather.generalCondition;
-            document.getElementById('weatherTemp').textContent = `${report.overview.weather.highTemp} / ${report.overview.weather.lowTemp}`;
-            document.getElementById('weatherPrecip').textContent = report.overview.weather.precipitation;
+        function calculateProgress(report) {
+            let filled = 0;
+            let total = 8;
+
+            if (report.overview?.weather?.generalCondition && report.overview.weather.generalCondition !== 'Syncing...') filled++;
+            if (report.contractors?.length > 0) filled++;
+            if (report.activities?.length > 0) filled++;
+            if (report.operations?.length > 0) filled++;
+            if (report.equipment?.length > 0) filled++;
+            if (report.generalIssues?.length > 0 || report.meta?.issuesSkipped) filled++;
+            if (report.qaqcNotes?.length > 0 || report.meta?.qaqcSkipped) filled++;
+            if (report.safety?.notes?.length > 0) filled++;
+
+            return Math.round((filled / total) * 100);
         }
 
-        // ============ RENDER SECTIONS ============
-        function renderSections() {
-            const report = getReport();
-            const grid = document.getElementById('sectionsGrid');
-            grid.innerHTML = '';
+        // ============ ACTIONS ============
+        function handleMainAction() {
+            window.location.href = 'interview.html';
+        }
 
-            SECTIONS.forEach(section => {
-                const hasContent = section.id === 'overview'
-                    ? report.overview.weather.generalCondition !== 'Syncing...'
-                    : (report[section.id]?.length > 0);
+        function viewHistory() {
+            const modal = document.getElementById('historyModal');
+            const list = document.getElementById('historyList');
 
-                const button = document.createElement('a');
-                button.href = `editor.html?section=${section.id}`;
-                button.className = `flex items-center gap-4 bg-white p-5 rounded-3xl border-2 transition-all group ${
-                    hasContent ? 'border-emerald-100 bg-emerald-50/20' : 'border-slate-100 hover:border-indigo-300'
-                }`;
+            const history = getReportHistory();
 
-                button.innerHTML = `
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
-                        hasContent ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'
-                    }">
-                        <i class="fas ${section.icon} text-lg"></i>
+            if (history.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-inbox text-4xl text-white/20 mb-4"></i>
+                        <p class="text-white/50">No report history yet</p>
                     </div>
-                    <div class="flex-1 text-left">
-                        <h3 class="font-bold text-slate-800">${section.title}</h3>
-                        <p class="text-xs text-slate-400 font-medium">
-                            ${hasContent ? 'Section populated' : 'Tap to add field notes'}
-                        </p>
-                    </div>
-                    <i class="fas ${hasContent ? 'fa-check-circle text-emerald-500' : 'fa-chevron-right text-slate-200'}"></i>
                 `;
+            } else {
+                list.innerHTML = history.map(h => `
+                    <a href="report.html?key=${h.key}" class="block bg-white/10 rounded-2xl p-4 hover:bg-white/20 transition-colors">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-full ${h.completed ? 'bg-emerald-500/30' : 'bg-amber-500/30'} flex items-center justify-center">
+                                <i class="fas ${h.completed ? 'fa-check text-emerald-400' : 'fa-clock text-amber-400'}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-white truncate">${h.projectName}</p>
+                                <p class="text-xs text-white/50">${h.date} · ${h.contractorCount} contractors</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-white/30"></i>
+                        </div>
+                    </a>
+                `).join('');
+            }
 
-                grid.appendChild(button);
-            });
+            modal.classList.remove('hidden');
+        }
+
+        function closeHistory() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function openSettings() {
+            alert('Settings coming soon!\n\n• Edit project info\n• Set default times\n• Export all data\n• Clear history');
         }
 
         // ============ INIT ============
         document.addEventListener('DOMContentLoaded', () => {
-            const report = getReport();
+            // Set date
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            });
 
-            // Update date
-            document.getElementById('currentDate').textContent = report.overview.date;
-            document.getElementById('projectName').textContent = report.overview.projectName;
+            // Set project info
+            document.getElementById('projectName').textContent = INITIAL_OVERVIEW.projectName;
+            document.getElementById('contractDay').textContent = INITIAL_OVERVIEW.contractDayNo;
 
-            // Update weather display
-            updateWeatherDisplay(report);
-
-            // Render sections
-            renderSections();
-
-            // Sync weather button
-            document.getElementById('syncWeatherBtn').addEventListener('click', fetchWeather);
-
-            // Auto-sync weather on load
-            if (report.overview.weather.generalCondition === 'Syncing...') {
-                fetchWeather();
+            // Check for yesterday's report
+            if (hasYesterdayReport()) {
+                document.getElementById('carryForwardBanner').classList.remove('hidden');
             }
+
+            // Update report status
+            updateReportStatus();
+
+            // Sync weather
+            syncWeather();
         });
     </script>
 </body>
