@@ -568,10 +568,11 @@
 
         function stopRecording() {
             if (recognition) {
-                isRecording = false;
                 recognition.stop();
                 recognition = null;
             }
+            isRecording = false;
+            processVoiceInput();
         }
 
         async function processVoiceInput() {
