@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Report - FieldVoice Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            .print-hidden { display: none !important; }
+            .page-break { page-break-before: always; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body class="bg-white min-h-screen">
+    <div class="max-w-4xl mx-auto p-8 print:p-0">
+        <!-- NAVIGATION BAR (hidden on print) -->
+        <div class="flex justify-between items-center mb-6 print-hidden">
+            <a href="index.html" class="flex items-center gap-2 text-slate-500 font-bold hover:text-slate-700 transition-colors">
+                <i class="fas fa-arrow-left"></i> Back to Editing
+            </a>
+            <button onclick="window.print()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-blue-700 transition-colors">
+                <i class="fas fa-print mr-2"></i> Print / Save PDF
+            </button>
+        </div>
+
+        <!-- PAGE 1: OVERVIEW -->
+        <div id="page1" class="border-4 border-slate-900 p-1 mb-8">
+            <div class="flex justify-between items-end border-b-2 border-slate-900 pb-2 mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-slate-200 flex items-center justify-center text-[8px] font-bold">LOGO</div>
+                    <h1 class="text-xl font-black uppercase tracking-tighter">RPR Daily Report</h1>
+                </div>
+                <div class="text-xs font-bold">Page 1 of <span id="totalPages">4</span></div>
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">Project Overview</div>
+
+            <div id="overviewGrid" class="grid grid-cols-2 gap-0 border border-slate-900 text-[10px]">
+                <!-- Filled by JS -->
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mt-4 mb-4">Daily Work Summary</div>
+            <div id="workSummary" class="text-[10px] p-2 space-y-4 min-h-[400px]">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+
+        <!-- PAGE 2: TABLES -->
+        <div id="page2" class="border-4 border-slate-900 p-1 mb-8 page-break">
+            <div class="flex justify-between items-end border-b-2 border-slate-900 pb-2 mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-slate-200 flex items-center justify-center text-[8px] font-bold">LOGO</div>
+                    <h1 class="text-xl font-black uppercase tracking-tighter">RPR Daily Report</h1>
+                </div>
+                <div class="text-xs font-bold">Page 2 of <span class="totalPages">4</span></div>
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">Daily Operations</div>
+            <table id="operationsTable" class="w-full text-[9px] border-collapse border border-slate-900 mb-6">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="border border-slate-900 p-1 text-center">CONTRACTOR</th>
+                        <th class="border border-slate-900 p-1 text-center">TRADE</th>
+                        <th class="border border-slate-900 p-1 text-center">SUPER(S)</th>
+                        <th class="border border-slate-900 p-1 text-center">FOREMAN</th>
+                        <th class="border border-slate-900 p-1 text-center">OPERATOR(S)</th>
+                        <th class="border border-slate-900 p-1 text-center">LABORER(S)</th>
+                        <th class="border border-slate-900 p-1 text-center">OTHER(S)</th>
+                    </tr>
+                </thead>
+                <tbody id="operationsBody">
+                    <!-- Filled by JS -->
+                </tbody>
+            </table>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">Mobilized Equipment & Daily Utilization</div>
+            <table class="w-full text-[9px] border-collapse border border-slate-900">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="border border-slate-900 p-1 text-center">CONTRACTOR</th>
+                        <th class="border border-slate-900 p-1 text-center">EQUIPMENT TYPE / MODEL #</th>
+                        <th class="border border-slate-900 p-1 text-center">QUANTITY</th>
+                        <th class="border border-slate-900 p-1 text-center">NOTES</th>
+                    </tr>
+                </thead>
+                <tbody id="equipmentBody">
+                    <!-- Filled by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGE 3: ISSUES, QA/QC, SAFETY -->
+        <div id="page3" class="border-4 border-slate-900 p-1 mb-8 page-break">
+            <div class="flex justify-between items-end border-b-2 border-slate-900 pb-2 mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-slate-200 flex items-center justify-center text-[8px] font-bold">LOGO</div>
+                    <h1 class="text-xl font-black uppercase tracking-tighter">RPR Daily Report</h1>
+                </div>
+                <div class="text-xs font-bold">Page 3 of <span class="totalPages">4</span></div>
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">Issues & Delays</div>
+            <div id="issuesSection" class="text-[10px] p-2 mb-6 min-h-[100px] border border-slate-200">
+                <!-- Filled by JS -->
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">QA/QC Inspections</div>
+            <div id="qaqcSection" class="text-[10px] p-2 mb-6 min-h-[100px] border border-slate-200">
+                <!-- Filled by JS -->
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">Safety & Incidents</div>
+            <div id="safetySection" class="text-[10px] p-2 min-h-[100px] border border-slate-200">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+
+        <!-- PAGE 4: PHOTOS (conditional) -->
+        <div id="page4" class="border-4 border-slate-900 p-1 mb-8 page-break hidden">
+            <div class="flex justify-between items-end border-b-2 border-slate-900 pb-2 mb-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 bg-slate-200 flex items-center justify-center text-[8px] font-bold">LOGO</div>
+                    <h1 class="text-xl font-black uppercase tracking-tighter">RPR Daily Report</h1>
+                </div>
+                <div class="text-xs font-bold">Page 4 of <span class="totalPages">4</span></div>
+            </div>
+
+            <div class="bg-emerald-900 text-white text-center font-bold py-1 uppercase text-sm mb-4">Daily Photos</div>
+            <div id="photosGrid" class="grid grid-cols-2 gap-4 p-4">
+                <!-- Filled by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ STATE MANAGEMENT ============
+        function getReport() {
+            const saved = localStorage.getItem('fieldvoice_report');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return getInitialReport();
+                }
+            }
+            return getInitialReport();
+        }
+
+        function getInitialReport() {
+            return {
+                overview: {
+                    projectName: "North-South Connector Road Phase 2",
+                    noabProjectNo: "1291",
+                    cnoSolicitationNo: "N/A",
+                    noticeToProceed: "June 27th, 2025",
+                    contractDuration: "467 days",
+                    expectedCompletion: "October 7th, 2026",
+                    contractDayNo: "19 of 467 days",
+                    weatherDays: "0 days",
+                    date: new Date().toLocaleDateString(),
+                    location: "Louis Armstrong New Orleans Int'l Airport",
+                    engineer: "Garver, LLC",
+                    contractor: "Hunt, Gibbs, Boh, & Metro (HGBM)",
+                    startTime: "6:00 AM",
+                    endTime: "4:00 PM",
+                    shiftDuration: "10.00 hours",
+                    completedBy: "Inspector Name, RPR",
+                    weather: {
+                        highTemp: "--",
+                        lowTemp: "--",
+                        precipitation: "0.00\"",
+                        generalCondition: "Syncing...",
+                        jobSiteCondition: "Dry",
+                        adverseConditions: "N/A",
+                    },
+                },
+                activities: [],
+                operations: [],
+                equipment: [],
+                generalIssues: [],
+                communications: [],
+                qaqcNotes: [],
+                safety: { hasIncidents: false, notes: [] },
+                visitorsRemarks: [],
+                photos: [],
+            };
+        }
+
+        // ============ RENDER REPORT ============
+        function renderReport() {
+            const report = getReport();
+
+            // Page 1: Overview Grid
+            const overviewGrid = document.getElementById('overviewGrid');
+            overviewGrid.innerHTML = `
+                <div class="border-r border-b border-slate-900 p-2"><span class="font-bold">PROJECT NAME:</span> ${report.overview.projectName}</div>
+                <div class="border-b border-slate-900 p-2"><span class="font-bold">DATE:</span> ${report.overview.date}</div>
+                <div class="border-r border-b border-slate-900 p-2"><span class="font-bold">NOAB PROJECT NO:</span> ${report.overview.noabProjectNo}</div>
+                <div class="border-b border-slate-900 p-2"><span class="font-bold">LOCATION:</span> ${report.overview.location}</div>
+                <div class="border-r border-b border-slate-900 p-2"><span class="font-bold">NOTICE TO PROCEED:</span> ${report.overview.noticeToProceed}</div>
+                <div class="border-b border-slate-900 p-2"><span class="font-bold">ENGINEER:</span> ${report.overview.engineer}</div>
+                <div class="border-r border-b border-slate-900 p-2"><span class="font-bold">CONTRACT DURATION:</span> ${report.overview.contractDuration}</div>
+                <div class="border-b border-slate-900 p-2"><span class="font-bold">CONTRACTOR:</span> ${report.overview.contractor}</div>
+                <div class="border-r border-b border-slate-900 p-2"><span class="font-bold">CONTRACT DAY NO:</span> ${report.overview.contractDayNo}</div>
+                <div class="border-b border-slate-900 p-2"><span class="font-bold">SHIFT HOURS:</span> ${report.overview.startTime} - ${report.overview.endTime} (${report.overview.shiftDuration})</div>
+                <div class="col-span-1 border-r border-slate-900 p-2 h-24">
+                    <span class="font-bold block mb-1">WEATHER:</span>
+                    <div class="grid grid-cols-2">
+                        <div>High Temp: ${report.overview.weather.highTemp}</div>
+                        <div>Low Temp: ${report.overview.weather.lowTemp}</div>
+                        <div>Precipitation: ${report.overview.weather.precipitation}</div>
+                        <div>General: ${report.overview.weather.generalCondition}</div>
+                    </div>
+                </div>
+                <div class="col-span-1 p-2 h-24 flex flex-col justify-between">
+                    <span class="font-bold">COMPLETED BY:</span>
+                    <div class="text-right">
+                        <div class="border-b border-slate-900 w-48 ml-auto text-center italic font-serif text-lg">${report.overview.completedBy}</div>
+                        <div class="font-bold text-[8px] uppercase">Signature</div>
+                    </div>
+                </div>
+            `;
+
+            // Page 1: Work Summary
+            const workSummary = document.getElementById('workSummary');
+            workSummary.innerHTML = `
+                <p class="font-bold">Construction Activities Performed and Observed on this Date:</p>
+                ${report.activities.length === 0
+                    ? '<p class="italic text-slate-400">No work summary recorded for today.</p>'
+                    : report.activities.map(act => `
+                        <div class="space-y-1">
+                            <p class="font-bold uppercase border-b border-slate-100">${act.contractor} – SUBCONTRACTOR (${act.trade})</p>
+                            <p>${act.narrative || "No work performed on this date."}</p>
+                            ${act.equipmentSummary ? `<p class="font-bold">EQUIPMENT: ${act.equipmentSummary}</p>` : ''}
+                            ${act.crewSummary ? `<p class="font-bold">CREW: ${act.crewSummary}</p>` : ''}
+                        </div>
+                    `).join('')
+                }
+            `;
+
+            // Page 2: Operations Table
+            const operationsBody = document.getElementById('operationsBody');
+            operationsBody.innerHTML = report.operations.length > 0
+                ? report.operations.map(row => `
+                    <tr>
+                        <td class="border border-slate-900 p-1">${row.contractor}</td>
+                        <td class="border border-slate-900 p-1">${row.trade || ''}</td>
+                        <td class="border border-slate-900 p-1 text-center">${row.supers || ''}</td>
+                        <td class="border border-slate-900 p-1 text-center">${row.foreman || ''}</td>
+                        <td class="border border-slate-900 p-1 text-center">${row.operators || ''}</td>
+                        <td class="border border-slate-900 p-1 text-center">${row.laborers || ''}</td>
+                        <td class="border border-slate-900 p-1 text-center">${row.others || ''}</td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="7" class="border border-slate-900 p-2 text-center italic text-slate-400">N/A</td></tr>';
+
+            // Page 2: Equipment Table
+            const equipmentBody = document.getElementById('equipmentBody');
+            equipmentBody.innerHTML = report.equipment.length > 0
+                ? report.equipment.map(row => `
+                    <tr>
+                        <td class="border border-slate-900 p-1">${row.contractor}</td>
+                        <td class="border border-slate-900 p-1">${row.model}</td>
+                        <td class="border border-slate-900 p-1 text-center">${row.quantity}</td>
+                        <td class="border border-slate-900 p-1">${row.notes || ''}</td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="4" class="border border-slate-900 p-2 text-center italic text-slate-400">N/A</td></tr>';
+
+            // Page 3: Issues
+            const issuesSection = document.getElementById('issuesSection');
+            issuesSection.innerHTML = report.generalIssues.length > 0
+                ? report.generalIssues.map(issue => `<p class="mb-1">• ${issue}</p>`).join('')
+                : '<p class="italic text-slate-400">No issues or delays reported.</p>';
+
+            // Page 3: QA/QC
+            const qaqcSection = document.getElementById('qaqcSection');
+            qaqcSection.innerHTML = report.qaqcNotes.length > 0
+                ? report.qaqcNotes.map(note => `<p class="mb-1">• ${note}</p>`).join('')
+                : '<p class="italic text-slate-400">No QA/QC inspections recorded.</p>';
+
+            // Page 3: Safety
+            const safetySection = document.getElementById('safetySection');
+            safetySection.innerHTML = `
+                <p class="font-bold mb-2 ${report.safety.hasIncidents ? 'text-red-600' : 'text-green-600'}">
+                    ${report.safety.hasIncidents ? 'INCIDENTS REPORTED' : 'NO INCIDENTS REPORTED'}
+                </p>
+                ${report.safety.notes.length > 0
+                    ? report.safety.notes.map(note => `<p class="mb-1">• ${note}</p>`).join('')
+                    : '<p class="italic text-slate-400">No safety notes recorded.</p>'
+                }
+            `;
+
+            // Page 4: Photos (conditional)
+            const page4 = document.getElementById('page4');
+            const photosGrid = document.getElementById('photosGrid');
+
+            if (report.photos.length > 0) {
+                page4.classList.remove('hidden');
+                photosGrid.innerHTML = report.photos.map(p => `
+                    <div class="border border-slate-300">
+                        <img src="${p.url}" class="w-full h-48 object-cover" />
+                        <div class="p-2 text-[8px] bg-slate-50">
+                            <span class="font-bold">Date: ${p.date}</span>
+                            <p class="mt-1">${p.caption}</p>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Update page count
+                document.getElementById('totalPages').textContent = '4';
+                document.querySelectorAll('.totalPages').forEach(el => el.textContent = '4');
+            } else {
+                page4.classList.add('hidden');
+                document.getElementById('totalPages').textContent = '3';
+                document.querySelectorAll('.totalPages').forEach(el => el.textContent = '3');
+            }
+        }
+
+        // ============ INIT ============
+        document.addEventListener('DOMContentLoaded', renderReport);
+    </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FieldVoice Daily Report Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+    <div id="app" class="max-w-xl mx-auto pb-32">
+        <!-- HEADER -->
+        <header class="sticky top-0 bg-white/90 backdrop-blur-md z-10 border-b p-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-black text-slate-900 tracking-tight italic">FIELDVOICE<span class="text-indigo-600 not-italic">PRO</span></h1>
+                <p id="currentDate" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></p>
+            </div>
+            <a href="report.html" class="bg-indigo-600 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg hover:shadow-indigo-200 active:scale-95 transition-all">
+                Review Report
+            </a>
+        </header>
+
+        <main class="p-4 space-y-4">
+            <!-- AUTO-SYNC CARD -->
+            <div class="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm overflow-hidden relative">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Project Status</h2>
+                        <p id="projectName" class="text-lg font-bold text-slate-800 leading-tight"></p>
+                    </div>
+                    <button id="syncWeatherBtn" class="p-2 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors">
+                        <i id="syncIcon" class="fas fa-sync-alt text-slate-400"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
+                        <div class="text-[10px] font-bold text-indigo-400 uppercase">Weather</div>
+                        <div id="weatherCondition" class="text-sm font-black text-indigo-700">Syncing...</div>
+                    </div>
+                    <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
+                        <div class="text-[10px] font-bold text-indigo-400 uppercase">High/Low</div>
+                        <div id="weatherTemp" class="text-sm font-black text-indigo-700">--/--</div>
+                    </div>
+                    <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
+                        <div class="text-[10px] font-bold text-indigo-400 uppercase">Precip</div>
+                        <div id="weatherPrecip" class="text-sm font-black text-indigo-700">0.00"</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION BUTTONS -->
+            <div id="sectionsGrid" class="grid grid-cols-1 gap-3"></div>
+        </main>
+
+        <!-- WALK-AROUND BUTTON -->
+        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full px-6 flex justify-center z-20">
+            <button onclick="alert('Free-form walk-around narration feature coming in Pro v2!')" class="bg-slate-900 text-white flex items-center gap-3 px-8 py-4 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all ring-4 ring-white">
+                <i class="fas fa-microphone text-xl text-indigo-400"></i>
+                <span class="font-bold tracking-tight">Walk-Around Narration</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ============ INITIAL DATA ============
+        const INITIAL_OVERVIEW = {
+            projectName: "North-South Connector Road Phase 2",
+            noabProjectNo: "1291",
+            cnoSolicitationNo: "N/A",
+            noticeToProceed: "June 27th, 2025",
+            contractDuration: "467 days",
+            expectedCompletion: "October 7th, 2026",
+            contractDayNo: "19 of 467 days",
+            weatherDays: "0 days",
+            date: new Date().toLocaleDateString(),
+            location: "Louis Armstrong New Orleans Int'l Airport",
+            engineer: "Garver, LLC",
+            contractor: "Hunt, Gibbs, Boh, & Metro (HGBM)",
+            startTime: "6:00 AM",
+            endTime: "4:00 PM",
+            shiftDuration: "10.00 hours",
+            completedBy: "Inspector Name, RPR",
+            weather: {
+                highTemp: "--",
+                lowTemp: "--",
+                precipitation: "0.00\"",
+                generalCondition: "Syncing...",
+                jobSiteCondition: "Dry",
+                adverseConditions: "N/A",
+            },
+        };
+
+        const INITIAL_REPORT = {
+            overview: INITIAL_OVERVIEW,
+            activities: [],
+            operations: [],
+            equipment: [],
+            generalIssues: [],
+            communications: [],
+            qaqcNotes: [],
+            safety: { hasIncidents: false, notes: [] },
+            visitorsRemarks: [],
+            photos: [],
+        };
+
+        const SECTIONS = [
+            { id: 'overview', title: 'Site Conditions', icon: 'fa-cloud-sun', prompt: 'How is the site looking today?', examples: ["The site is very muddy after last night's rain.", "High of 85, sunny, working conditions are ideal.", "Surface is dry and ready for paving."] },
+            { id: 'activities', title: 'Work Summary', icon: 'fa-tasks', prompt: 'What was accomplished today?', examples: ["Boh Bros started clearing the North basin.", "HGBM finished the culvert installation at Station 12.", "Electrical sub is running conduit for site lighting."] },
+            { id: 'operations', title: 'Headcounts', icon: 'fa-users', prompt: 'Who is on site today?', examples: ["HGBM has 1 super, 2 foremen, and 12 laborers.", "Metro Plumbing has 4 journeymen on site.", "Survey crew is here with 3 people."] },
+            { id: 'equipment', title: 'Equipment', icon: 'fa-truck-pickup', prompt: 'What machines are moving?', examples: ["Two Cat 320 excavators active all day.", "D6 Dozer arrived at 9 AM.", "Roller is currently idle near the south gate."] },
+            { id: 'issues', title: 'Delays & Issues', icon: 'fa-exclamation-triangle', prompt: 'Any problems or unforeseen events?', examples: ["Waiting on RFI #22 for structural steel.", "Utility strike at 2 PM, resolved by 4 PM.", "Concrete delivery was 2 hours late."] },
+            { id: 'qaqc', title: 'Inspections', icon: 'fa-check-double', prompt: 'What was tested or inspected?', examples: ["Performed slump test on Load #4.", "Proof roll passed on subgrade segment B.", "Checked reinforcement at pier 4."] },
+            { id: 'safety', title: 'Safety & Incidents', icon: 'fa-hard-hat', prompt: 'Everything safe on site?', examples: ["Conducted toolbox talk on trench safety.", "All workers using proper PPE.", "Minor trip hazard identified and cleared."] },
+            { id: 'photos', title: 'Progress Photos', icon: 'fa-camera', prompt: 'Any visual progress to note?', examples: ["Taking photos of the new curb line.", "Documented the utility repair.", "Photo of the completed drainage structure."] },
+        ];
+
+        // ============ STATE MANAGEMENT ============
+        function getReport() {
+            const saved = localStorage.getItem('fieldvoice_report');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    return INITIAL_REPORT;
+                }
+            }
+            return INITIAL_REPORT;
+        }
+
+        function saveReport(report) {
+            localStorage.setItem('fieldvoice_report', JSON.stringify(report));
+        }
+
+        // ============ WEATHER FETCH ============
+        async function fetchWeather() {
+            const syncIcon = document.getElementById('syncIcon');
+            syncIcon.classList.add('fa-spin');
+
+            try {
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`);
+                    const data = await response.json();
+
+                    const weatherCodes = {
+                        0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+                        45: 'Fog', 48: 'Fog', 51: 'Drizzle', 61: 'Rain', 80: 'Showers'
+                    };
+
+                    const report = getReport();
+                    report.overview.weather.highTemp = `${Math.round(data.daily.temperature_2m_max[0])}°C`;
+                    report.overview.weather.lowTemp = `${Math.round(data.daily.temperature_2m_min[0])}°C`;
+                    report.overview.weather.precipitation = `${data.daily.precipitation_sum[0]}mm`;
+                    report.overview.weather.generalCondition = weatherCodes[data.current_weather.weathercode] || 'Cloudy';
+                    saveReport(report);
+
+                    updateWeatherDisplay(report);
+                    syncIcon.classList.remove('fa-spin');
+                }, (err) => {
+                    console.error(err);
+                    syncIcon.classList.remove('fa-spin');
+                });
+            } catch (error) {
+                console.error(error);
+                syncIcon.classList.remove('fa-spin');
+            }
+        }
+
+        function updateWeatherDisplay(report) {
+            document.getElementById('weatherCondition').textContent = report.overview.weather.generalCondition;
+            document.getElementById('weatherTemp').textContent = `${report.overview.weather.highTemp} / ${report.overview.weather.lowTemp}`;
+            document.getElementById('weatherPrecip').textContent = report.overview.weather.precipitation;
+        }
+
+        // ============ RENDER SECTIONS ============
+        function renderSections() {
+            const report = getReport();
+            const grid = document.getElementById('sectionsGrid');
+            grid.innerHTML = '';
+
+            SECTIONS.forEach(section => {
+                const hasContent = section.id === 'overview'
+                    ? report.overview.weather.generalCondition !== 'Syncing...'
+                    : (report[section.id]?.length > 0);
+
+                const button = document.createElement('a');
+                button.href = `editor.html?section=${section.id}`;
+                button.className = `flex items-center gap-4 bg-white p-5 rounded-3xl border-2 transition-all group ${
+                    hasContent ? 'border-emerald-100 bg-emerald-50/20' : 'border-slate-100 hover:border-indigo-300'
+                }`;
+
+                button.innerHTML = `
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                        hasContent ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+                    }">
+                        <i class="fas ${section.icon} text-lg"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <h3 class="font-bold text-slate-800">${section.title}</h3>
+                        <p class="text-xs text-slate-400 font-medium">
+                            ${hasContent ? 'Section populated' : 'Tap to add field notes'}
+                        </p>
+                    </div>
+                    <i class="fas ${hasContent ? 'fa-check-circle text-emerald-500' : 'fa-chevron-right text-slate-200'}"></i>
+                `;
+
+                grid.appendChild(button);
+            });
+        }
+
+        // ============ INIT ============
+        document.addEventListener('DOMContentLoaded', () => {
+            const report = getReport();
+
+            // Update date
+            document.getElementById('currentDate').textContent = report.overview.date;
+            document.getElementById('projectName').textContent = report.overview.projectName;
+
+            // Update weather display
+            updateWeatherDisplay(report);
+
+            // Render sections
+            renderSections();
+
+            // Sync weather button
+            document.getElementById('syncWeatherBtn').addEventListener('click', fetchWeather);
+
+            // Auto-sync weather on load
+            if (report.overview.weather.generalCondition === 'Syncing...') {
+                fetchWeather();
+            }
+        });
+    </script>
+</body>
+</html>
