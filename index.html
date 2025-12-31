@@ -387,17 +387,21 @@
             } else {
                 // Report in progress
                 const progress = calculateProgress(report);
+                const currentStep = report.meta?.currentStep || 0;
+                const stepNames = ['Weather', 'Site Conditions', 'Contractors', 'Work Details', 'Headcounts', 'Equipment', 'Issues', 'Inspections', 'Safety', 'Visitors', 'Photos'];
+                const currentStepName = stepNames[currentStep] || 'Starting';
 
                 statusCard.innerHTML = `
                     <div class="flex items-center gap-4">
                         <div class="w-12 h-12 rounded-full bg-amber-500/30 flex items-center justify-center">
-                            <i class="fas fa-spinner fa-pulse text-amber-400 text-lg"></i>
+                            <i class="fas fa-clipboard-list text-amber-400 text-lg"></i>
                         </div>
                         <div class="flex-1">
                             <p class="text-sm font-bold text-white">Report In Progress</p>
+                            <p class="text-xs text-white/40 mt-0.5">Next: ${currentStepName}</p>
                             <div class="flex items-center gap-2 mt-1">
                                 <div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                    <div class="h-full bg-amber-400 rounded-full" style="width: ${progress}%"></div>
+                                    <div class="h-full bg-gradient-to-r from-amber-400 to-emerald-400 rounded-full transition-all" style="width: ${progress}%"></div>
                                 </div>
                                 <span class="text-xs text-white/50">${progress}%</span>
                             </div>
@@ -406,7 +410,7 @@
                 `;
                 mainActionIcon.className = 'fas fa-play text-2xl';
                 mainActionTitle.textContent = "Continue Interview";
-                mainActionSubtitle.textContent = "Pick up where you left off";
+                mainActionSubtitle.textContent = `Resume at ${currentStepName}`;
                 viewReportBtn.classList.remove('hidden');
                 viewReportBtn.classList.add('flex');
             }
@@ -471,7 +475,7 @@
         }
 
         function openSettings() {
-            alert('Settings coming soon!\n\n• Edit project info\n• Set default times\n• Export all data\n• Clear history');
+            window.location.href = 'settings.html';
         }
 
         // ============ INIT ============
