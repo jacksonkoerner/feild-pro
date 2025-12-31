@@ -452,6 +452,9 @@
                 return;
             }
 
+            // Reset answered flag for fresh render
+            stepAnswered = false;
+
             // Update progress
             document.getElementById('stepLabel').textContent = `Step ${currentStep + 1} of ${INTERVIEW_STEPS.length}`;
             document.getElementById('stepName').textContent = step.id.replace(/_/g, ' ');
@@ -733,8 +736,20 @@
             }
         }
 
+        // Track if current step has been answered (to show next button)
+        let stepAnswered = false;
+
         function hasStepData(step) {
+            // If step was just answered, return true
+            if (stepAnswered) return true;
+
             switch (step.id) {
+                case 'weather_confirm':
+                    return todayReport.overview?.weather?.generalCondition &&
+                           todayReport.overview.weather.generalCondition !== 'Syncing...';
+                case 'site_conditions':
+                    return todayReport.overview?.weather?.jobSiteCondition &&
+                           todayReport.overview.weather.jobSiteCondition !== 'Dry';
                 case 'contractors_onsite':
                     return contractorsOnSite.length > 0;
                 case 'contractor_work':
@@ -751,6 +766,8 @@
                     return todayReport.safety.notes.length > 0;
                 case 'visitors':
                     return todayReport.visitorsRemarks.length > 0;
+                case 'photos':
+                    return todayReport.photos.length > 0;
                 default:
                     return false;
             }
@@ -801,39 +818,54 @@ Extract data matching the schema. Return only JSON.`;
         function applyStepResult(step, result) {
             const responseContent = document.getElementById('responseContent');
 
+            // Mark step as answered so next button stays visible
+            stepAnswered = true;
+
             switch (step.id) {
                 case 'site_conditions':
-                    if (result.jobSiteCondition) {
-                        todayReport.overview.weather.jobSiteCondition = result.jobSiteCondition;
+                    // Handle both structured and raw fallback
+                    const siteCondition = result.jobSiteCondition || result.raw || currentTranscript;
+                    if (siteCondition) {
+                        todayReport.overview.weather.jobSiteCondition = siteCondition;
                     }
                     if (result.adverseConditions) {
                         todayReport.overview.weather.adverseConditions = result.adverseConditions;
                     }
-                    showConfirmation(`Site condition: ${result.jobSiteCondition || 'Updated'}`);
+                    showConfirmationWithText('Site conditions saved', siteCondition);
                     break;
 
                 case 'contractors_onsite':
+                    // Handle both structured and raw fallback
                     if (result.contractors && Array.isArray(result.contractors)) {
                         contractorsOnSite = result.contractors.map(c => normalizeContractorName(c));
                         todayReport.contractors = contractorsOnSite;
+                    } else if (result.raw) {
+                        // Parse contractors from raw text (split by "and", ",", etc.)
+                        const rawContractors = result.raw.split(/,|and|&/).map(c => normalizeContractorName(c.trim())).filter(c => c);
+                        if (rawContractors.length > 0) {
+                            contractorsOnSite = rawContractors;
+                            todayReport.contractors = contractorsOnSite;
+                        }
                     }
-                    showConfirmation(`${contractorsOnSite.length} contractors on site`);
+                    showConfirmationWithText(`${contractorsOnSite.length} contractor${contractorsOnSite.length !== 1 ? 's' : ''} on site`, contractorsOnSite.join(', '));
                     break;
 
                 case 'contractor_work':
                     const contractor = contractorsOnSite[currentContractorIndex];
+                    const workNarrative = result.narrative || result.raw || currentTranscript;
                     todayReport.activities.push({
                         contractor: contractor,
                         trade: 'General',
-                        narrative: result.narrative || result.raw || '',
+                        narrative: workNarrative,
                         equipmentSummary: result.equipmentSummary || '',
                         crewSummary: result.crewSummary || ''
                     });
-                    showConfirmation(`Work logged for ${contractor}`);
+                    showConfirmationWithText(`Work logged for ${contractor}`, workNarrative);
                     break;
 
                 case 'headcounts':
                     const hcContractor = contractorsOnSite[currentContractorIndex];
+                    const headcountText = result.raw || currentTranscript;
                     todayReport.operations.push({
                         contractor: hcContractor,
                         trade: 'General',
@@ -844,10 +876,15 @@ Extract data matching the schema. Return only JSON.`;
                         others: result.others || 0
                     });
                     const total = (result.supers || 0) + (result.foreman || 0) + (result.operators || 0) + (result.laborers || 0) + (result.others || 0);
-                    showConfirmation(`${total} workers logged for ${hcContractor}`);
+                    if (total > 0) {
+                        showConfirmationWithText(`${total} workers logged for ${hcContractor}`, headcountText);
+                    } else {
+                        showConfirmationWithText(`Headcount logged for ${hcContractor}`, headcountText);
+                    }
                     break;
 
                 case 'equipment':
+                    const equipText = result.raw || currentTranscript;
                     if (result.equipment && Array.isArray(result.equipment)) {
                         result.equipment.forEach(eq => {
                             todayReport.equipment.push({
@@ -857,57 +894,61 @@ Extract data matching the schema. Return only JSON.`;
                                 notes: eq.notes || ''
                             });
                         });
-                    } else if (result.raw) {
+                    } else if (equipText) {
                         todayReport.equipment.push({
                             contractor: contractorsOnSite[0] || 'HGBM',
-                            model: result.raw,
+                            model: equipText,
                             quantity: 1,
                             notes: ''
                         });
                     }
-                    showConfirmation(`Equipment logged`);
+                    showConfirmationWithText('Equipment logged', equipText);
                     break;
 
                 case 'issues':
+                    const issueText = result.raw || currentTranscript;
                     if (result.issues && Array.isArray(result.issues)) {
                         todayReport.generalIssues.push(...result.issues);
-                    } else if (result.raw && !result.raw.toLowerCase().includes('no ') && !result.raw.toLowerCase().includes('none')) {
-                        todayReport.generalIssues.push(result.raw);
+                    } else if (issueText && !issueText.toLowerCase().includes('no ') && !issueText.toLowerCase().includes('none')) {
+                        todayReport.generalIssues.push(issueText);
                     }
-                    showConfirmation(`Issues logged`);
+                    showConfirmationWithText('Issues logged', issueText);
                     break;
 
                 case 'inspections':
+                    const inspectText = result.raw || currentTranscript;
                     if (result.notes && Array.isArray(result.notes)) {
                         todayReport.qaqcNotes.push(...result.notes);
-                    } else if (result.raw && !result.raw.toLowerCase().includes('no ') && !result.raw.toLowerCase().includes('none')) {
-                        todayReport.qaqcNotes.push(result.raw);
+                    } else if (inspectText && !inspectText.toLowerCase().includes('no ') && !inspectText.toLowerCase().includes('none')) {
+                        todayReport.qaqcNotes.push(inspectText);
                     }
-                    showConfirmation(`Inspections logged`);
+                    showConfirmationWithText('Inspections logged', inspectText);
                     break;
 
                 case 'safety':
+                    const safetyText = result.raw || currentTranscript;
                     if (result.hasIncidents !== undefined) {
                         todayReport.safety.hasIncidents = result.hasIncidents;
                     }
                     if (result.notes && Array.isArray(result.notes)) {
                         todayReport.safety.notes.push(...result.notes);
-                    } else if (result.raw) {
-                        todayReport.safety.notes.push(result.raw);
-                        if (result.raw.toLowerCase().includes('incident') || result.raw.toLowerCase().includes('injury')) {
+                    } else if (safetyText) {
+                        todayReport.safety.notes.push(safetyText);
+                        if (safetyText.toLowerCase().includes('incident') || safetyText.toLowerCase().includes('injury')) {
                             todayReport.safety.hasIncidents = true;
                         }
                     }
-                    showConfirmation(todayReport.safety.hasIncidents ? 'Incident reported' : 'No incidents');
+                    showConfirmationWithText(todayReport.safety.hasIncidents ? 'Incident reported' : 'Safety check complete', safetyText);
                     break;
 
                 case 'visitors':
+                    const visitorText = result.raw || currentTranscript;
                     if (result.remarks && Array.isArray(result.remarks)) {
                         todayReport.visitorsRemarks.push(...result.remarks);
-                    } else if (result.raw && !result.raw.toLowerCase().includes('no ') && !result.raw.toLowerCase().includes('none')) {
-                        todayReport.visitorsRemarks.push(result.raw);
+                    } else if (visitorText && !visitorText.toLowerCase().includes('no ') && !visitorText.toLowerCase().includes('none')) {
+                        todayReport.visitorsRemarks.push(visitorText);
                     }
-                    showConfirmation(`Visitors/communications logged`);
+                    showConfirmationWithText('Visitors/communications logged', visitorText);
                     break;
             }
 
@@ -927,6 +968,24 @@ Extract data matching the schema. Return only JSON.`;
                             <i class="fas fa-check text-3xl text-emerald-400"></i>
                         </div>
                         <p class="text-lg font-bold text-white">${message}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showConfirmationWithText(title, userText) {
+            const responseContent = document.getElementById('responseContent');
+            responseContent.innerHTML = `
+                <div class="py-4">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                            <i class="fas fa-check text-xl text-emerald-400"></i>
+                        </div>
+                        <p class="text-lg font-bold text-white">${title}</p>
+                    </div>
+                    <div class="bg-white/10 rounded-2xl p-4">
+                        <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Your response</p>
+                        <p class="text-sm text-white/80 italic">"${userText || 'No details provided'}"</p>
                     </div>
                 </div>
             `;
@@ -957,6 +1016,9 @@ Extract data matching the schema. Return only JSON.`;
         function goToNextStep() {
             const step = getCurrentStepConfig();
 
+            // Reset step answered flag for new step
+            stepAnswered = false;
+
             // Handle contractor loop steps
             if (step.type === 'contractor_loop') {
                 currentContractorIndex++;
@@ -971,6 +1033,12 @@ Extract data matching the schema. Return only JSON.`;
 
             // Move to next step
             currentStep++;
+
+            // Save current step for resume functionality
+            todayReport.meta.currentStep = currentStep;
+            todayReport.meta.currentContractorIndex = currentContractorIndex;
+            saveReport(todayReport);
+
             if (currentStep >= INTERVIEW_STEPS.length) {
                 finishInterview();
             } else {
@@ -981,28 +1049,22 @@ Extract data matching the schema. Return only JSON.`;
         function skipQuestion() {
             const step = getCurrentStepConfig();
 
-            // Apply default N/A value if defined
+            // Reset step answered flag
+            stepAnswered = false;
+
+            // Mark this section as skipped in metadata
             if (step.defaultNA) {
-                switch (step.id) {
-                    case 'issues':
-                        // Leave empty - will show "No issues reported"
-                        break;
-                    case 'inspections':
-                        // Leave empty
-                        break;
-                    case 'visitors':
-                        // Leave empty
-                        break;
-                }
+                todayReport.meta[`${step.id}Skipped`] = true;
             }
 
+            // Apply default N/A value if defined
             if (step.defaultValue) {
                 if (step.id === 'safety') {
                     todayReport.safety = step.defaultValue;
-                    saveReport(todayReport);
                 }
             }
 
+            saveReport(todayReport);
             goToNextStep();
         }
 
@@ -1226,6 +1288,16 @@ Extract data matching the schema. Return only JSON.`;
 
             // Carry forward data
             carryForwardFromYesterday();
+
+            // Resume from saved step if available
+            if (todayReport.meta?.currentStep !== undefined && todayReport.meta.currentStep > 0) {
+                currentStep = todayReport.meta.currentStep;
+                currentContractorIndex = todayReport.meta.currentContractorIndex || 0;
+                // Also restore contractors on site
+                if (todayReport.contractors && todayReport.contractors.length > 0) {
+                    contractorsOnSite = todayReport.contractors;
+                }
+            }
 
             // Fetch weather
             if (todayReport.overview.weather.generalCondition === 'Syncing...' || todayReport.overview.weather.generalCondition === '--') {

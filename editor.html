@@ -587,16 +587,18 @@
 
             const report = getReport();
 
-            // Simple processing based on section
+            // Smart processing based on section
             switch (currentSection) {
                 case 'issues':
                     if (!transcript.toLowerCase().includes('no ') && !transcript.toLowerCase().includes('none')) {
                         report.generalIssues.push(transcript);
+                        showToast('Issue added');
                     }
                     break;
                 case 'qaqc':
                     if (!transcript.toLowerCase().includes('no ') && !transcript.toLowerCase().includes('none')) {
                         report.qaqcNotes.push(transcript);
+                        showToast('Inspection note added');
                     }
                     break;
                 case 'safety':
@@ -604,17 +606,42 @@
                     if (transcript.toLowerCase().includes('incident') || transcript.toLowerCase().includes('injury')) {
                         report.safety.hasIncidents = true;
                     }
+                    showToast('Safety note added');
                     break;
                 case 'activities':
-                    // Try to extract contractor
+                    // Try to extract contractor from known list or text
+                    const contractor = extractContractor(transcript) || getDefaultContractor(report);
                     report.activities.push({
-                        contractor: 'CONTRACTOR',
+                        contractor: contractor,
                         trade: 'General',
                         narrative: transcript
                     });
+                    showToast(`Activity added for ${contractor}`);
+                    break;
+                case 'equipment':
+                    // Add equipment from voice
+                    const eqContractor = getDefaultContractor(report);
+                    report.equipment.push({
+                        contractor: eqContractor,
+                        model: transcript,
+                        quantity: 1,
+                        notes: ''
+                    });
+                    showToast('Equipment added');
+                    break;
+                case 'operations':
+                    // Try to parse headcount from voice
+                    const hcContractor = extractContractor(transcript) || getDefaultContractor(report);
+                    const headcount = parseHeadcount(transcript);
+                    report.operations.push({
+                        contractor: hcContractor,
+                        trade: 'General',
+                        ...headcount
+                    });
+                    showToast(`Headcount added for ${hcContractor}`);
                     break;
                 default:
-                    // For other sections, just show confirmation
+                    showToast('Note recorded');
                     break;
             }
 
@@ -623,6 +650,65 @@
             currentTranscript = '';
             updateVoiceUI();
             renderContent();
+        }
+
+        function extractContractor(text) {
+            const lower = text.toLowerCase();
+            const knownContractors = {
+                'HGBM': ['hgbm', 'hunt gibbs', 'hunt, gibbs', 'the prime', 'prime contractor'],
+                'Boh Bros': ['boh', 'boh brothers', 'boh bros'],
+                'Metro Electric': ['metro', 'metro electrical', 'electricians'],
+                'Allied Concrete': ['allied', 'concrete guys', 'concrete sub']
+            };
+
+            for (const [name, aliases] of Object.entries(knownContractors)) {
+                if (aliases.some(alias => lower.includes(alias)) || lower.includes(name.toLowerCase())) {
+                    return name;
+                }
+            }
+            return null;
+        }
+
+        function getDefaultContractor(report) {
+            // Use first contractor from today's report or default
+            return report.contractors?.[0] || 'HGBM';
+        }
+
+        function parseHeadcount(text) {
+            const counts = { supers: 0, foreman: 0, operators: 0, laborers: 0, others: 0 };
+            const lower = text.toLowerCase();
+
+            // Try to extract numbers with keywords
+            const patterns = [
+                { regex: /(\d+)\s*(?:super|superintendent)/i, field: 'supers' },
+                { regex: /(\d+)\s*(?:foreman|foremen)/i, field: 'foreman' },
+                { regex: /(\d+)\s*(?:operator|operators)/i, field: 'operators' },
+                { regex: /(\d+)\s*(?:laborer|laborers|workers)/i, field: 'laborers' }
+            ];
+
+            for (const p of patterns) {
+                const match = text.match(p.regex);
+                if (match) counts[p.field] = parseInt(match[1]) || 0;
+            }
+
+            // If no specific breakdown, try to get total
+            if (Object.values(counts).every(v => v === 0)) {
+                const numMatch = text.match(/(\d+)/);
+                if (numMatch) counts.laborers = parseInt(numMatch[1]) || 0;
+            }
+
+            return counts;
+        }
+
+        function showToast(message) {
+            const existing = document.querySelector('.toast-notification');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg z-50';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
         }
 
         function updateVoiceUI() {
