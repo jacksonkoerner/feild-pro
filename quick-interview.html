@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quick Report - FieldVoice Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-recording {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.5); opacity: 0; }
+        }
+        .recording-pulse::before {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse-recording 1.5s ease-out infinite;
+        }
+        .section-card {
+            transition: all 0.3s ease;
+        }
+        .section-card.expanded {
+            border-color: rgb(99 102 241 / 0.5);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+        }
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .section-card.expanded .section-content {
+            max-height: 1000px;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-white">
+    <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col">
+
+        <!-- HEADER -->
+        <header class="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm p-4 border-b border-white/10">
+            <div class="flex items-center justify-between">
+                <a href="index.html" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                    <i class="fas fa-arrow-left text-white/70"></i>
+                </a>
+                <div class="text-center flex-1 mx-4">
+                    <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Quick Report</p>
+                    <p id="currentDate" class="text-sm font-medium text-white/70"></p>
+                </div>
+                <button onclick="finishReport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors">
+                    Finish
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mt-3 flex items-center gap-2">
+                <div class="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div id="progressBar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <span id="progressText" class="text-xs text-white/50">0%</span>
+            </div>
+        </header>
+
+        <!-- SECTIONS LIST -->
+        <main class="flex-1 p-4 pb-8 space-y-3 overflow-y-auto hide-scrollbar">
+
+            <!-- Weather Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="weather">
+                <button onclick="toggleSection('weather')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center">
+                        <i class="fas fa-cloud-sun text-sky-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">Weather & Site Conditions</p>
+                        <p id="weather-preview" class="text-sm text-white/50 truncate">Tap to add</p>
+                    </div>
+                    <div id="weather-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <div class="bg-white/5 rounded-xl p-3">
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-white/50">Condition</span>
+                                <span id="weather-condition" class="font-bold text-white">--</span>
+                            </div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-white/50">Temperature</span>
+                                <span id="weather-temp" class="font-bold text-white">--</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-white/50">Precipitation</span>
+                                <span id="weather-precip" class="font-bold text-white">--</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Site Conditions</label>
+                            <div class="mt-2 flex items-center gap-2">
+                                <textarea id="site-conditions-input" class="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none" rows="2" placeholder="Describe site conditions..."></textarea>
+                                <button onclick="recordVoice('weather')" class="voice-btn w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work Summary Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="activities">
+                <button onclick="toggleSection('activities')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                        <i class="fas fa-tasks text-emerald-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">Work Summary</p>
+                        <p id="activities-preview" class="text-sm text-white/50 truncate">Tap to add</p>
+                    </div>
+                    <div id="activities-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <div id="activities-list" class="space-y-2">
+                            <!-- Dynamic activities -->
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <textarea id="activity-input" class="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none" rows="2" placeholder="Describe work performed..."></textarea>
+                            <button onclick="addActivity()" class="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button onclick="recordVoice('activities')" class="voice-btn w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issues Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="issues">
+                <button onclick="toggleSection('issues')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
+                        <i class="fas fa-exclamation-triangle text-red-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">Issues & Delays</p>
+                        <p id="issues-preview" class="text-sm text-white/50 truncate">None reported</p>
+                    </div>
+                    <div id="issues-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('issues')" id="issues-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>No Issues - Mark as N/A
+                        </button>
+                        <div id="issues-list" class="space-y-2">
+                            <!-- Dynamic issues -->
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <textarea id="issue-input" class="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none" rows="2" placeholder="Describe any issues or delays..."></textarea>
+                            <button onclick="addIssue()" class="px-4 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button onclick="recordVoice('issues')" class="voice-btn w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inspections Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="inspections">
+                <button onclick="toggleSection('inspections')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                        <i class="fas fa-check-double text-purple-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">QA/QC Inspections</p>
+                        <p id="inspections-preview" class="text-sm text-white/50 truncate">None reported</p>
+                    </div>
+                    <div id="inspections-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('inspections')" id="inspections-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>No Inspections - Mark as N/A
+                        </button>
+                        <div id="inspections-list" class="space-y-2">
+                            <!-- Dynamic inspections -->
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <textarea id="inspection-input" class="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none" rows="2" placeholder="Describe inspections or testing..."></textarea>
+                            <button onclick="addInspection()" class="px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button onclick="recordVoice('inspections')" class="voice-btn w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Safety Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="safety">
+                <button onclick="toggleSection('safety')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center">
+                        <i class="fas fa-hard-hat text-green-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">Safety</p>
+                        <p id="safety-preview" class="text-sm text-white/50 truncate">No incidents</p>
+                    </div>
+                    <div id="safety-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <div class="flex gap-2">
+                            <label class="flex-1 flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl cursor-pointer hover:bg-emerald-500/20 transition-colors">
+                                <input type="checkbox" id="no-incidents" class="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500">
+                                <span class="font-medium text-emerald-400">No incidents</span>
+                            </label>
+                            <label class="flex-1 flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl cursor-pointer hover:bg-red-500/20 transition-colors">
+                                <input type="checkbox" id="has-incidents" class="w-5 h-5 rounded text-red-600 focus:ring-red-500">
+                                <span class="font-medium text-red-400">Incident occurred</span>
+                            </label>
+                        </div>
+                        <div id="safety-list" class="space-y-2">
+                            <!-- Dynamic safety notes -->
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <textarea id="safety-input" class="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none" rows="2" placeholder="Safety notes, toolbox talks..."></textarea>
+                            <button onclick="addSafetyNote()" class="px-4 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button onclick="recordVoice('safety')" class="voice-btn w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visitors Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="visitors">
+                <button onclick="toggleSection('visitors')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+                        <i class="fas fa-user-tie text-indigo-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">Visitors & Communications</p>
+                        <p id="visitors-preview" class="text-sm text-white/50 truncate">None reported</p>
+                    </div>
+                    <div id="visitors-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('visitors')" id="visitors-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>No Visitors - Mark as N/A
+                        </button>
+                        <div id="visitors-list" class="space-y-2">
+                            <!-- Dynamic visitors -->
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <textarea id="visitor-input" class="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-indigo-500 resize-none" rows="2" placeholder="Visitors, calls, communications..."></textarea>
+                            <button onclick="addVisitor()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button onclick="recordVoice('visitors')" class="voice-btn w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-white transition-all">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Photos Section -->
+            <div class="section-card bg-white/5 rounded-2xl border border-white/10" data-section="photos">
+                <button onclick="toggleSection('photos')" class="w-full p-4 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-pink-500/20 flex items-center justify-center">
+                        <i class="fas fa-camera text-pink-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 text-left">
+                        <p class="font-bold text-white">Progress Photos</p>
+                        <p id="photos-preview" class="text-sm text-white/50 truncate">No photos</p>
+                    </div>
+                    <div id="photos-status" class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+                        <i class="fas fa-chevron-down text-white/30 text-xs"></i>
+                    </div>
+                </button>
+                <div class="section-content">
+                    <div class="px-4 pb-4 space-y-3">
+                        <label class="block cursor-pointer">
+                            <input type="file" accept="image/*" capture="environment" multiple class="hidden" id="photoInput">
+                            <div class="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-pink-400/50 hover:bg-pink-500/5 transition-colors">
+                                <i class="fas fa-camera text-2xl text-white/30 mb-2"></i>
+                                <p class="font-bold text-white/70">Tap to add photos</p>
+                                <p class="text-xs text-white/40">GPS location will be captured</p>
+                            </div>
+                        </label>
+                        <div id="photos-grid" class="grid grid-cols-2 gap-2">
+                            <!-- Dynamic photos -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Voice Recording Modal -->
+    <div id="voiceModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-3xl w-full max-w-sm p-6">
+            <div class="text-center mb-6">
+                <p id="voiceModalTitle" class="text-lg font-bold text-white">Recording...</p>
+                <p class="text-sm text-white/50">Tap stop when finished</p>
+            </div>
+
+            <div id="voiceTranscript" class="bg-white/10 rounded-2xl p-4 mb-6 min-h-[100px] max-h-[200px] overflow-y-auto">
+                <p id="liveTranscript" class="text-sm text-white/80 italic">Listening...</p>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <button onclick="cancelVoice()" class="px-6 py-3 bg-white/10 text-white font-bold rounded-xl hover:bg-white/20 transition-colors">
+                    Cancel
+                </button>
+                <button id="stopVoiceBtn" onclick="stopVoice()" class="recording-pulse relative px-6 py-3 bg-red-500 text-white font-bold rounded-xl">
+                    <i class="fas fa-stop mr-2"></i>Stop
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============ STATE ============
+        let currentSection = null;
+        let isRecording = false;
+        let recognition = null;
+        let currentTranscript = '';
+        let activeVoiceSection = null;
+        let report = null;
+
+        // ============ STORAGE ============
+        function getTodayKey() {
+            return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`;
+        }
+
+        function getReport() {
+            const saved = localStorage.getItem(getTodayKey());
+            if (saved) {
+                try { return JSON.parse(saved); } catch (e) {}
+            }
+            return createFreshReport();
+        }
+
+        function createFreshReport() {
+            return {
+                meta: {
+                    createdAt: new Date().toISOString(),
+                    interviewCompleted: false,
+                    reportType: 'quick',
+                    version: 2
+                },
+                overview: {
+                    projectName: "North-South Connector Road Phase 2",
+                    date: new Date().toLocaleDateString(),
+                    startTime: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+                    weather: {
+                        highTemp: "--",
+                        lowTemp: "--",
+                        precipitation: "0.00\"",
+                        generalCondition: "Syncing...",
+                        jobSiteCondition: "",
+                        adverseConditions: "N/A"
+                    }
+                },
+                contractors: [],
+                activities: [],
+                operations: [],
+                equipment: [],
+                generalIssues: [],
+                qaqcNotes: [],
+                safety: { hasIncidents: false, notes: [] },
+                visitorsRemarks: [],
+                photos: []
+            };
+        }
+
+        function saveReport() {
+            localStorage.setItem(getTodayKey(), JSON.stringify(report));
+            localStorage.setItem('fieldvoice_report', JSON.stringify(report));
+            updateAllPreviews();
+            updateProgress();
+        }
+
+        // ============ WEATHER ============
+        async function fetchWeather() {
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                });
+
+                const { latitude, longitude } = position.coords;
+                const response = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&temperature_unit=fahrenheit&precipitation_unit=inch`
+                );
+                const data = await response.json();
+
+                const weatherCodes = {
+                    0: 'Clear', 1: 'Mostly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
+                    45: 'Fog', 48: 'Fog', 51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle',
+                    61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain', 80: 'Showers', 95: 'Thunderstorm'
+                };
+
+                const precip = data.daily.precipitation_sum[0];
+                report.overview.weather = {
+                    highTemp: `${Math.round(data.daily.temperature_2m_max[0])}°F`,
+                    lowTemp: `${Math.round(data.daily.temperature_2m_min[0])}°F`,
+                    precipitation: `${precip.toFixed(2)}"`,
+                    generalCondition: weatherCodes[data.current_weather.weathercode] || 'Cloudy',
+                    jobSiteCondition: report.overview.weather.jobSiteCondition || (precip > 0.1 ? 'Wet' : 'Dry'),
+                    adverseConditions: precip > 0.25 ? 'Rain impact possible' : 'N/A'
+                };
+
+                saveReport();
+                updateWeatherDisplay();
+            } catch (error) {
+                console.error('Weather fetch failed:', error);
+            }
+        }
+
+        function updateWeatherDisplay() {
+            const w = report.overview.weather;
+            document.getElementById('weather-condition').textContent = w.generalCondition;
+            document.getElementById('weather-temp').textContent = `${w.highTemp} / ${w.lowTemp}`;
+            document.getElementById('weather-precip').textContent = w.precipitation;
+            document.getElementById('site-conditions-input').value = w.jobSiteCondition || '';
+        }
+
+        // ============ SECTION TOGGLE ============
+        function toggleSection(sectionId) {
+            const cards = document.querySelectorAll('.section-card');
+            cards.forEach(card => {
+                if (card.dataset.section === sectionId) {
+                    card.classList.toggle('expanded');
+                    const icon = card.querySelector('[id$="-status"] i');
+                    if (card.classList.contains('expanded')) {
+                        icon.className = 'fas fa-chevron-up text-indigo-400 text-xs';
+                    } else {
+                        icon.className = 'fas fa-chevron-down text-white/30 text-xs';
+                    }
+                } else {
+                    card.classList.remove('expanded');
+                    const icon = card.querySelector('[id$="-status"] i');
+                    icon.className = 'fas fa-chevron-down text-white/30 text-xs';
+                }
+            });
+        }
+
+        // ============ VOICE RECORDING ============
+        function recordVoice(section) {
+            activeVoiceSection = section;
+            currentTranscript = '';
+            document.getElementById('liveTranscript').textContent = 'Listening...';
+            document.getElementById('voiceModal').classList.remove('hidden');
+
+            const sectionNames = {
+                weather: 'Site Conditions',
+                activities: 'Work Summary',
+                issues: 'Issues',
+                inspections: 'Inspections',
+                safety: 'Safety',
+                visitors: 'Visitors'
+            };
+            document.getElementById('voiceModalTitle').textContent = `Recording: ${sectionNames[section]}`;
+
+            startRecording();
+        }
+
+        function startRecording() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech Recognition not supported. Please use Chrome or Safari.");
+                cancelVoice();
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isRecording = true;
+            };
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                currentTranscript = transcript;
+                document.getElementById('liveTranscript').textContent = transcript || 'Listening...';
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                isRecording = false;
+            };
+
+            recognition.start();
+        }
+
+        function stopVoice() {
+            if (recognition) {
+                recognition.stop();
+                recognition = null;
+            }
+            isRecording = false;
+
+            const transcript = currentTranscript.trim();
+            if (transcript) {
+                applyVoiceToSection(activeVoiceSection, transcript);
+            }
+
+            document.getElementById('voiceModal').classList.add('hidden');
+            currentTranscript = '';
+            activeVoiceSection = null;
+        }
+
+        function cancelVoice() {
+            if (recognition) {
+                recognition.stop();
+                recognition = null;
+            }
+            isRecording = false;
+            currentTranscript = '';
+            activeVoiceSection = null;
+            document.getElementById('voiceModal').classList.add('hidden');
+        }
+
+        function applyVoiceToSection(section, transcript) {
+            switch (section) {
+                case 'weather':
+                    report.overview.weather.jobSiteCondition = transcript;
+                    document.getElementById('site-conditions-input').value = transcript;
+                    break;
+                case 'activities':
+                    report.activities.push({
+                        contractor: 'General',
+                        trade: 'General',
+                        narrative: transcript
+                    });
+                    break;
+                case 'issues':
+                    if (!transcript.toLowerCase().includes('none') && !transcript.toLowerCase().includes('no issues')) {
+                        report.generalIssues.push(transcript);
+                    }
+                    break;
+                case 'inspections':
+                    if (!transcript.toLowerCase().includes('none') && !transcript.toLowerCase().includes('no inspection')) {
+                        report.qaqcNotes.push(transcript);
+                    }
+                    break;
+                case 'safety':
+                    report.safety.notes.push(transcript);
+                    if (transcript.toLowerCase().includes('incident') || transcript.toLowerCase().includes('injury')) {
+                        report.safety.hasIncidents = true;
+                    }
+                    break;
+                case 'visitors':
+                    if (!transcript.toLowerCase().includes('none') && !transcript.toLowerCase().includes('no visitor')) {
+                        report.visitorsRemarks.push(transcript);
+                    }
+                    break;
+            }
+
+            saveReport();
+            renderSection(section);
+            showToast('Added successfully');
+        }
+
+        // ============ MANUAL ADD FUNCTIONS ============
+        function addActivity() {
+            const input = document.getElementById('activity-input');
+            const text = input.value.trim();
+            if (text) {
+                report.activities.push({
+                    contractor: 'General',
+                    trade: 'General',
+                    narrative: text
+                });
+                saveReport();
+                renderSection('activities');
+                input.value = '';
+            }
+        }
+
+        function removeActivity(index) {
+            report.activities.splice(index, 1);
+            saveReport();
+            renderSection('activities');
+        }
+
+        function addIssue() {
+            const input = document.getElementById('issue-input');
+            const text = input.value.trim();
+            if (text) {
+                report.generalIssues.push(text);
+                saveReport();
+                renderSection('issues');
+                input.value = '';
+            }
+        }
+
+        function removeIssue(index) {
+            report.generalIssues.splice(index, 1);
+            saveReport();
+            renderSection('issues');
+        }
+
+        function addInspection() {
+            const input = document.getElementById('inspection-input');
+            const text = input.value.trim();
+            if (text) {
+                report.qaqcNotes.push(text);
+                saveReport();
+                renderSection('inspections');
+                input.value = '';
+            }
+        }
+
+        function removeInspection(index) {
+            report.qaqcNotes.splice(index, 1);
+            saveReport();
+            renderSection('inspections');
+        }
+
+        function addSafetyNote() {
+            const input = document.getElementById('safety-input');
+            const text = input.value.trim();
+            if (text) {
+                report.safety.notes.push(text);
+                saveReport();
+                renderSection('safety');
+                input.value = '';
+            }
+        }
+
+        function removeSafetyNote(index) {
+            report.safety.notes.splice(index, 1);
+            saveReport();
+            renderSection('safety');
+        }
+
+        function addVisitor() {
+            const input = document.getElementById('visitor-input');
+            const text = input.value.trim();
+            if (text) {
+                report.visitorsRemarks.push(text);
+                saveReport();
+                renderSection('visitors');
+                input.value = '';
+            }
+        }
+
+        function removeVisitor(index) {
+            report.visitorsRemarks.splice(index, 1);
+            saveReport();
+            renderSection('visitors');
+        }
+
+        // ============ PHOTOS ============
+        async function handlePhotoInput(e) {
+            const files = e.target.files;
+            if (!files) return;
+
+            for (const file of files) {
+                let gps = null;
+                try {
+                    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
+                    gps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                } catch (e) {}
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    report.photos.push({
+                        id: `photo_${Date.now()}`,
+                        url: ev.target.result,
+                        caption: '',
+                        timestamp: new Date().toISOString(),
+                        date: new Date().toLocaleDateString(),
+                        time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                        gps: gps
+                    });
+                    saveReport();
+                    renderSection('photos');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removePhoto(index) {
+            report.photos.splice(index, 1);
+            saveReport();
+            renderSection('photos');
+        }
+
+        // ============ RENDER SECTIONS ============
+        function renderSection(section) {
+            switch (section) {
+                case 'activities':
+                    const activitiesList = document.getElementById('activities-list');
+                    activitiesList.innerHTML = report.activities.map((a, i) => `
+                        <div class="bg-white/5 rounded-xl p-3 flex items-start gap-3">
+                            <div class="flex-1">
+                                <p class="text-[10px] font-bold text-emerald-400 uppercase">${a.contractor}</p>
+                                <p class="text-sm text-white/80 mt-1">${a.narrative}</p>
+                            </div>
+                            <button onclick="removeActivity(${i})" class="text-red-400/50 hover:text-red-400">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    `).join('') || '';
+                    break;
+
+                case 'issues':
+                    const issuesList = document.getElementById('issues-list');
+                    issuesList.innerHTML = report.generalIssues.map((issue, i) => `
+                        <div class="bg-white/5 rounded-xl p-3 flex items-start gap-3">
+                            <i class="fas fa-exclamation-circle text-red-400 mt-0.5"></i>
+                            <p class="flex-1 text-sm text-white/80">${issue}</p>
+                            <button onclick="removeIssue(${i})" class="text-red-400/50 hover:text-red-400">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    `).join('') || '';
+                    break;
+
+                case 'inspections':
+                    const inspectionsList = document.getElementById('inspections-list');
+                    inspectionsList.innerHTML = report.qaqcNotes.map((note, i) => `
+                        <div class="bg-white/5 rounded-xl p-3 flex items-start gap-3">
+                            <i class="fas fa-check-circle text-purple-400 mt-0.5"></i>
+                            <p class="flex-1 text-sm text-white/80">${note}</p>
+                            <button onclick="removeInspection(${i})" class="text-red-400/50 hover:text-red-400">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    `).join('') || '';
+                    break;
+
+                case 'safety':
+                    const safetyList = document.getElementById('safety-list');
+                    safetyList.innerHTML = report.safety.notes.map((note, i) => `
+                        <div class="bg-white/5 rounded-xl p-3 flex items-start gap-3">
+                            <i class="fas fa-shield-alt text-green-400 mt-0.5"></i>
+                            <p class="flex-1 text-sm text-white/80">${note}</p>
+                            <button onclick="removeSafetyNote(${i})" class="text-red-400/50 hover:text-red-400">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    `).join('') || '';
+                    document.getElementById('has-incidents').checked = report.safety.hasIncidents;
+                    break;
+
+                case 'visitors':
+                    const visitorsList = document.getElementById('visitors-list');
+                    visitorsList.innerHTML = report.visitorsRemarks.map((v, i) => `
+                        <div class="bg-white/5 rounded-xl p-3 flex items-start gap-3">
+                            <i class="fas fa-user text-indigo-400 mt-0.5"></i>
+                            <p class="flex-1 text-sm text-white/80">${v}</p>
+                            <button onclick="removeVisitor(${i})" class="text-red-400/50 hover:text-red-400">
+                                <i class="fas fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    `).join('') || '';
+                    break;
+
+                case 'photos':
+                    const photosGrid = document.getElementById('photos-grid');
+                    photosGrid.innerHTML = report.photos.map((p, i) => `
+                        <div class="relative bg-white/5 rounded-xl overflow-hidden">
+                            <img src="${p.url}" class="w-full aspect-square object-cover">
+                            <button onclick="removePhoto(${i})" class="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                                <p class="text-[10px] text-white/70">${p.time}</p>
+                            </div>
+                        </div>
+                    `).join('') || '';
+                    break;
+            }
+        }
+
+        function renderAllSections() {
+            ['activities', 'issues', 'inspections', 'safety', 'visitors', 'photos'].forEach(renderSection);
+            updateWeatherDisplay();
+        }
+
+        // ============ PREVIEWS & PROGRESS ============
+        function updateAllPreviews() {
+            // Weather preview
+            const w = report.overview.weather;
+            document.getElementById('weather-preview').textContent =
+                w.jobSiteCondition || `${w.generalCondition}, ${w.highTemp}`;
+
+            // Activities preview
+            document.getElementById('activities-preview').textContent =
+                report.activities.length > 0 ? `${report.activities.length} activities logged` : 'Tap to add';
+
+            // Issues preview
+            const naMarked = report.meta.naMarked || {};
+            document.getElementById('issues-preview').textContent =
+                naMarked.issues ? 'N/A - No issues' :
+                report.generalIssues.length > 0 ? `${report.generalIssues.length} issues` : 'None reported';
+
+            // Inspections preview
+            document.getElementById('inspections-preview').textContent =
+                naMarked.inspections ? 'N/A - No inspections' :
+                report.qaqcNotes.length > 0 ? `${report.qaqcNotes.length} inspections` : 'None reported';
+
+            // Safety preview
+            document.getElementById('safety-preview').textContent =
+                report.safety.hasIncidents ? 'INCIDENT REPORTED' :
+                report.safety.noIncidents ? 'No incidents (confirmed)' :
+                report.safety.notes.length > 0 ? 'Notes added' : 'Tap to confirm';
+
+            // Visitors preview
+            document.getElementById('visitors-preview').textContent =
+                naMarked.visitors ? 'N/A - No visitors' :
+                report.visitorsRemarks.length > 0 ? `${report.visitorsRemarks.length} entries` : 'None reported';
+
+            // Photos preview
+            document.getElementById('photos-preview').textContent =
+                report.photos.length > 0 ? `${report.photos.length} photos` : 'No photos';
+
+            // Update status icons
+            updateStatusIcons();
+        }
+
+        function updateStatusIcons() {
+            const naMarked = report.meta.naMarked || {};
+            const sections = {
+                'weather': report.overview.weather.jobSiteCondition,
+                'activities': report.activities.length > 0,
+                'issues': report.generalIssues.length > 0 || naMarked.issues,
+                'inspections': report.qaqcNotes.length > 0 || naMarked.inspections,
+                'safety': report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0,
+                'visitors': report.visitorsRemarks.length > 0 || naMarked.visitors,
+                'photos': report.photos.length > 0
+            };
+
+            Object.entries(sections).forEach(([section, hasData]) => {
+                const statusEl = document.getElementById(`${section}-status`);
+                if (!statusEl) return;
+
+                const card = document.querySelector(`[data-section="${section}"]`);
+                const isExpanded = card?.classList.contains('expanded');
+
+                if (hasData && !isExpanded) {
+                    statusEl.innerHTML = '<i class="fas fa-check text-emerald-400 text-xs"></i>';
+                    statusEl.className = 'w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center';
+                } else if (!isExpanded) {
+                    statusEl.innerHTML = '<i class="fas fa-chevron-down text-white/30 text-xs"></i>';
+                    statusEl.className = 'w-6 h-6 rounded-full bg-white/10 flex items-center justify-center';
+                }
+            });
+        }
+
+        function updateProgress() {
+            let filled = 0;
+            let total = 3; // Required sections for quick report
+
+            if (report.overview.weather.jobSiteCondition) filled++;
+            if (report.activities.length > 0) filled++;
+            if (report.safety.notes.length > 0 || report.safety.noIncidents || report.safety.hasIncidents) filled++;
+
+            const percent = Math.round((filled / total) * 100);
+            document.getElementById('progressBar').style.width = `${percent}%`;
+            document.getElementById('progressText').textContent = `${percent}%`;
+        }
+
+        // ============ UTILITIES ============
+        function showToast(message) {
+            const existing = document.querySelector('.toast-msg');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-msg fixed bottom-24 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg z-50';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        // ============ N/A MARKING ============
+        function markNA(section) {
+            if (!report.meta.naMarked) report.meta.naMarked = {};
+            report.meta.naMarked[section] = true;
+
+            const btn = document.getElementById(`${section}-na-btn`);
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Marked as N/A';
+                btn.className = 'w-full p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm font-medium cursor-default';
+                btn.onclick = () => clearNA(section);
+            }
+
+            saveReport();
+            updateAllPreviews();
+            showToast('Marked as N/A');
+        }
+
+        function clearNA(section) {
+            if (report.meta.naMarked) {
+                delete report.meta.naMarked[section];
+            }
+
+            const btn = document.getElementById(`${section}-na-btn`);
+            if (btn) {
+                const labels = {
+                    issues: 'No Issues - Mark as N/A',
+                    inspections: 'No Inspections - Mark as N/A',
+                    visitors: 'No Visitors - Mark as N/A'
+                };
+                btn.innerHTML = `<i class="fas fa-ban mr-2"></i>${labels[section] || 'Mark as N/A'}`;
+                btn.className = 'w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium';
+                btn.onclick = () => markNA(section);
+            }
+
+            saveReport();
+            updateAllPreviews();
+            showToast('N/A cleared');
+        }
+
+        function updateNAButtons() {
+            const naMarked = report.meta.naMarked || {};
+            Object.keys(naMarked).forEach(section => {
+                if (naMarked[section]) {
+                    const btn = document.getElementById(`${section}-na-btn`);
+                    if (btn) {
+                        btn.innerHTML = '<i class="fas fa-check mr-2"></i>Marked as N/A';
+                        btn.className = 'w-full p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm font-medium cursor-default';
+                        btn.onclick = () => clearNA(section);
+                    }
+                }
+            });
+        }
+
+        function finishReport() {
+            report.overview.endTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            report.meta.interviewCompleted = true;
+            report.meta.reportType = 'quick';
+
+            // Calculate shift duration
+            if (report.overview.startTime) {
+                const start = new Date(`2000/01/01 ${report.overview.startTime}`);
+                const end = new Date(`2000/01/01 ${report.overview.endTime}`);
+                const diffMs = end - start;
+                const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                report.overview.shiftDuration = `${hours}.${String(mins).padStart(2, '0')} hours`;
+            }
+
+            // Default safety if empty
+            if (report.safety.notes.length === 0 && !report.safety.noIncidents) {
+                report.safety.notes.push('No safety incidents reported.');
+            }
+
+            saveReport();
+            // Go to review page instead of report page
+            window.location.href = 'review.html';
+        }
+
+        // ============ EVENT LISTENERS ============
+        document.getElementById('site-conditions-input').addEventListener('change', (e) => {
+            report.overview.weather.jobSiteCondition = e.target.value;
+            saveReport();
+        });
+
+        document.getElementById('no-incidents').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                report.safety.hasIncidents = false;
+                report.safety.noIncidents = true;
+                document.getElementById('has-incidents').checked = false;
+            } else {
+                report.safety.noIncidents = false;
+            }
+            saveReport();
+            updateAllPreviews();
+        });
+
+        document.getElementById('has-incidents').addEventListener('change', (e) => {
+            report.safety.hasIncidents = e.target.checked;
+            if (e.target.checked) {
+                report.safety.noIncidents = false;
+                document.getElementById('no-incidents').checked = false;
+            }
+            saveReport();
+            updateAllPreviews();
+        });
+
+        document.getElementById('photoInput').addEventListener('change', handlePhotoInput);
+
+        // ============ INIT ============
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Set date
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Load report
+            report = getReport();
+
+            // Mark as quick report type
+            report.meta.reportType = 'quick';
+            saveReport();
+
+            // Fetch weather if needed
+            if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
+                await fetchWeather();
+            }
+
+            // Render all sections
+            renderAllSections();
+            updateAllPreviews();
+            updateProgress();
+            updateNAButtons();
+
+            // Restore checkbox states
+            document.getElementById('no-incidents').checked = report.safety.noIncidents || false;
+            document.getElementById('has-incidents').checked = report.safety.hasIncidents || false;
+        });
+    </script>
+</body>
+</html>

@@ -137,6 +137,50 @@
         </section>
     </div>
 
+    <!-- REPORT TYPE SELECTION MODAL -->
+    <div id="reportTypeModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6">
+        <div class="bg-slate-800 rounded-3xl w-full max-w-sm p-6">
+            <div class="text-center mb-6">
+                <h2 class="text-xl font-black text-white mb-2">Choose Report Type</h2>
+                <p class="text-sm text-white/50">Select the type of report you want to create</p>
+            </div>
+
+            <div class="space-y-3">
+                <!-- Quick Report Option -->
+                <button onclick="startQuickReport()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-5 text-left hover:shadow-lg hover:shadow-emerald-500/20 transition-all">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <i class="fas fa-bolt text-white text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-white text-lg">Quick Report</p>
+                            <p class="text-sm text-white/70">Essential info only (~3 min)</p>
+                        </div>
+                        <i class="fas fa-chevron-right text-white/50"></i>
+                    </div>
+                </button>
+
+                <!-- Full Report Option -->
+                <button onclick="startFullReport()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-5 text-left hover:shadow-lg hover:shadow-indigo-500/20 transition-all">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <i class="fas fa-clipboard-list text-white text-xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-white text-lg">Full Report</p>
+                            <p class="text-sm text-white/70">Complete daily report (~5 min)</p>
+                        </div>
+                        <i class="fas fa-chevron-right text-white/50"></i>
+                    </div>
+                </button>
+            </div>
+
+            <button onclick="closeReportTypeModal()" class="w-full mt-4 p-3 text-white/50 hover:text-white/80 transition-colors text-sm font-medium">
+                Cancel
+            </button>
+        </div>
+    </div>
+
     <!-- HISTORY MODAL -->
     <div id="historyModal" class="hidden fixed inset-0 bg-black/90 z-50 overflow-y-auto">
         <div class="max-w-lg mx-auto p-6">
@@ -434,6 +478,38 @@
 
         // ============ ACTIONS ============
         function handleMainAction() {
+            const report = getReport();
+            if (report && report.meta?.interviewCompleted) {
+                // If report is completed, go to the appropriate interview page
+                if (report.meta?.reportType === 'quick') {
+                    window.location.href = 'quick-interview.html';
+                } else {
+                    window.location.href = 'interview.html';
+                }
+            } else if (report) {
+                // Continue existing report
+                if (report.meta?.reportType === 'quick') {
+                    window.location.href = 'quick-interview.html';
+                } else {
+                    window.location.href = 'interview.html';
+                }
+            } else {
+                // Show report type selection modal for new reports
+                document.getElementById('reportTypeModal').classList.remove('hidden');
+            }
+        }
+
+        function closeReportTypeModal() {
+            document.getElementById('reportTypeModal').classList.add('hidden');
+        }
+
+        function startQuickReport() {
+            closeReportTypeModal();
+            window.location.href = 'quick-interview.html';
+        }
+
+        function startFullReport() {
+            closeReportTypeModal();
             window.location.href = 'interview.html';
         }
 
