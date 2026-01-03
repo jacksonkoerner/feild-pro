@@ -21,18 +21,37 @@
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
         }
-        @keyframes typing {
-            from { width: 0; }
-            to { width: 100%; }
-        }
-        .typing-effect {
-            overflow: hidden;
-            white-space: normal;
-            animation: fadeIn 0.3s ease-in;
-        }
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
+        }
+        .typing-effect {
+            animation: fadeIn 0.3s ease-in;
+        }
+        .editable-area {
+            min-height: 60px;
+            outline: none;
+            border-radius: 8px;
+            padding: 8px;
+            transition: background-color 0.2s;
+        }
+        .editable-area:hover {
+            background-color: rgba(255,255,255,0.05);
+        }
+        .editable-area:focus {
+            background-color: rgba(255,255,255,0.1);
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+        }
+        .editable-area[data-placeholder]:empty:before {
+            content: attr(data-placeholder);
+            color: rgba(255,255,255,0.3);
+            font-style: italic;
+        }
+        .section-na {
+            opacity: 0.6;
+        }
+        .section-na .refine-btn {
+            display: none;
         }
     </style>
 </head>
@@ -49,7 +68,7 @@
                     <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">AI Review</p>
                     <p id="currentDate" class="text-sm font-medium text-white/70"></p>
                 </div>
-                <button onclick="exportReport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors">
+                <button onclick="saveAndExport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors">
                     <i class="fas fa-file-export mr-2"></i>Export
                 </button>
             </div>
@@ -85,13 +104,13 @@
         <main class="flex-1 p-4 pb-8 space-y-4 overflow-y-auto hide-scrollbar">
 
             <!-- Weather Section -->
-            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="weather">
+            <div id="weather-section" class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="weather">
                 <div class="p-4 border-b border-white/10 flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center">
                         <i class="fas fa-cloud-sun text-sky-400"></i>
                     </div>
                     <p class="font-bold text-white flex-1">Weather & Site Conditions</p>
-                    <button onclick="refineSection('weather')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    <button id="weather-refine-btn" onclick="refineSection('weather')" class="refine-btn px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
                         <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
                     </button>
                 </div>
@@ -101,22 +120,22 @@
                         <div id="weather-original" class="text-sm text-white/70 min-h-[60px]">Loading...</div>
                     </div>
                     <div class="p-4 bg-emerald-500/5">
-                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">AI Refined</p>
-                        <div id="weather-refined" class="text-sm text-white min-h-[60px]">
-                            <span class="text-white/40 italic">Click "Refine" to improve</span>
-                        </div>
+                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                            AI Refined <span class="text-white/30 font-normal">(click to edit)</span>
+                        </p>
+                        <div id="weather-refined" class="editable-area text-sm text-white" contenteditable="true" data-placeholder="Click 'Refine' to improve or type here to edit..." oninput="handleEdit('weather')"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Work Summary Section -->
-            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="activities">
+            <div id="activities-section" class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="activities">
                 <div class="p-4 border-b border-white/10 flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
                         <i class="fas fa-tasks text-emerald-400"></i>
                     </div>
                     <p class="font-bold text-white flex-1">Work Summary</p>
-                    <button onclick="refineSection('activities')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    <button id="activities-refine-btn" onclick="refineSection('activities')" class="refine-btn px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
                         <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
                     </button>
                 </div>
@@ -126,22 +145,23 @@
                         <div id="activities-original" class="text-sm text-white/70 min-h-[60px]">Loading...</div>
                     </div>
                     <div class="p-4 bg-emerald-500/5">
-                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">AI Refined</p>
-                        <div id="activities-refined" class="text-sm text-white min-h-[60px]">
-                            <span class="text-white/40 italic">Click "Refine" to improve</span>
-                        </div>
+                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                            AI Refined <span class="text-white/30 font-normal">(click to edit)</span>
+                        </p>
+                        <div id="activities-refined" class="editable-area text-sm text-white" contenteditable="true" data-placeholder="Click 'Refine' to improve or type here to edit..." oninput="handleEdit('activities')"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Issues Section -->
-            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="issues">
+            <div id="issues-section" class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="issues">
                 <div class="p-4 border-b border-white/10 flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
                         <i class="fas fa-exclamation-triangle text-red-400"></i>
                     </div>
                     <p class="font-bold text-white flex-1">Issues & Delays</p>
-                    <button onclick="refineSection('issues')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    <span id="issues-na-badge" class="hidden px-3 py-1.5 bg-white/10 text-white/50 text-xs font-bold rounded-lg">N/A</span>
+                    <button id="issues-refine-btn" onclick="refineSection('issues')" class="refine-btn px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
                         <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
                     </button>
                 </div>
@@ -151,22 +171,23 @@
                         <div id="issues-original" class="text-sm text-white/70 min-h-[60px]">Loading...</div>
                     </div>
                     <div class="p-4 bg-emerald-500/5">
-                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">AI Refined</p>
-                        <div id="issues-refined" class="text-sm text-white min-h-[60px]">
-                            <span class="text-white/40 italic">Click "Refine" to improve</span>
-                        </div>
+                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                            AI Refined <span class="text-white/30 font-normal">(click to edit)</span>
+                        </p>
+                        <div id="issues-refined" class="editable-area text-sm text-white" contenteditable="true" data-placeholder="Click 'Refine' to improve or type here to edit..." oninput="handleEdit('issues')"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Inspections Section -->
-            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="inspections">
+            <div id="inspections-section" class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="inspections">
                 <div class="p-4 border-b border-white/10 flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
                         <i class="fas fa-check-double text-purple-400"></i>
                     </div>
                     <p class="font-bold text-white flex-1">QA/QC Inspections</p>
-                    <button onclick="refineSection('inspections')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    <span id="inspections-na-badge" class="hidden px-3 py-1.5 bg-white/10 text-white/50 text-xs font-bold rounded-lg">N/A</span>
+                    <button id="inspections-refine-btn" onclick="refineSection('inspections')" class="refine-btn px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
                         <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
                     </button>
                 </div>
@@ -176,22 +197,22 @@
                         <div id="inspections-original" class="text-sm text-white/70 min-h-[60px]">Loading...</div>
                     </div>
                     <div class="p-4 bg-emerald-500/5">
-                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">AI Refined</p>
-                        <div id="inspections-refined" class="text-sm text-white min-h-[60px]">
-                            <span class="text-white/40 italic">Click "Refine" to improve</span>
-                        </div>
+                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                            AI Refined <span class="text-white/30 font-normal">(click to edit)</span>
+                        </p>
+                        <div id="inspections-refined" class="editable-area text-sm text-white" contenteditable="true" data-placeholder="Click 'Refine' to improve or type here to edit..." oninput="handleEdit('inspections')"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Safety Section -->
-            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="safety">
+            <div id="safety-section" class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="safety">
                 <div class="p-4 border-b border-white/10 flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
                         <i class="fas fa-hard-hat text-green-400"></i>
                     </div>
                     <p class="font-bold text-white flex-1">Safety</p>
-                    <button onclick="refineSection('safety')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    <button id="safety-refine-btn" onclick="refineSection('safety')" class="refine-btn px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
                         <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
                     </button>
                 </div>
@@ -201,22 +222,23 @@
                         <div id="safety-original" class="text-sm text-white/70 min-h-[60px]">Loading...</div>
                     </div>
                     <div class="p-4 bg-emerald-500/5">
-                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">AI Refined</p>
-                        <div id="safety-refined" class="text-sm text-white min-h-[60px]">
-                            <span class="text-white/40 italic">Click "Refine" to improve</span>
-                        </div>
+                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                            AI Refined <span class="text-white/30 font-normal">(click to edit)</span>
+                        </p>
+                        <div id="safety-refined" class="editable-area text-sm text-white" contenteditable="true" data-placeholder="Click 'Refine' to improve or type here to edit..." oninput="handleEdit('safety')"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Visitors Section -->
-            <div class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="visitors">
+            <div id="visitors-section" class="bg-white/5 rounded-2xl border border-white/10 overflow-hidden" data-section="visitors">
                 <div class="p-4 border-b border-white/10 flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
                         <i class="fas fa-user-tie text-indigo-400"></i>
                     </div>
                     <p class="font-bold text-white flex-1">Visitors & Communications</p>
-                    <button onclick="refineSection('visitors')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    <span id="visitors-na-badge" class="hidden px-3 py-1.5 bg-white/10 text-white/50 text-xs font-bold rounded-lg">N/A</span>
+                    <button id="visitors-refine-btn" onclick="refineSection('visitors')" class="refine-btn px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors">
                         <i class="fas fa-wand-magic-sparkles mr-1"></i>Refine
                     </button>
                 </div>
@@ -226,10 +248,10 @@
                         <div id="visitors-original" class="text-sm text-white/70 min-h-[60px]">Loading...</div>
                     </div>
                     <div class="p-4 bg-emerald-500/5">
-                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">AI Refined</p>
-                        <div id="visitors-refined" class="text-sm text-white min-h-[60px]">
-                            <span class="text-white/40 italic">Click "Refine" to improve</span>
-                        </div>
+                        <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">
+                            AI Refined <span class="text-white/30 font-normal">(click to edit)</span>
+                        </p>
+                        <div id="visitors-refined" class="editable-area text-sm text-white" contenteditable="true" data-placeholder="Click 'Refine' to improve or type here to edit..." oninput="handleEdit('visitors')"></div>
                     </div>
                 </div>
             </div>
@@ -254,9 +276,9 @@
         <!-- BOTTOM ACTION -->
         <div class="sticky bottom-0 p-4 bg-slate-900/95 backdrop-blur-sm border-t border-white/10">
             <div class="flex gap-3">
-                <a href="report.html" class="flex-1 p-4 bg-white/10 hover:bg-white/20 rounded-2xl text-center font-bold text-white transition-colors">
-                    <i class="fas fa-file-alt mr-2"></i>View Full Report
-                </a>
+                <button onclick="saveAndViewReport()" class="flex-1 p-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-center font-bold text-white transition-colors">
+                    <i class="fas fa-save mr-2"></i>Save & View Report
+                </button>
                 <button onclick="copyToClipboard()" class="px-6 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-white transition-colors">
                     <i class="fas fa-copy"></i>
                 </button>
@@ -269,6 +291,7 @@
         let report = null;
         let refinedData = {};
         let apiKey = '';
+        let naSections = {};
 
         // ============ STORAGE ============
         function getTodayKey() {
@@ -278,13 +301,36 @@
         function getReport() {
             const saved = localStorage.getItem(getTodayKey());
             if (saved) {
-                try { return JSON.parse(saved); } catch (e) {}
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Ensure required properties exist for legacy reports
+                    if (!parsed.meta) parsed.meta = {};
+                    if (!parsed.meta.naMarked) parsed.meta.naMarked = {};
+                    if (!parsed.safety) parsed.safety = { hasIncidents: false, noIncidents: false, notes: [] };
+                    if (parsed.safety.noIncidents === undefined) parsed.safety.noIncidents = false;
+                    if (!parsed.refinedData) parsed.refinedData = {};
+                    return parsed;
+                } catch (e) {}
             }
             const legacy = localStorage.getItem('fieldvoice_report');
             if (legacy) {
-                try { return JSON.parse(legacy); } catch (e) {}
+                try {
+                    const parsed = JSON.parse(legacy);
+                    // Ensure required properties exist for legacy reports
+                    if (!parsed.meta) parsed.meta = {};
+                    if (!parsed.meta.naMarked) parsed.meta.naMarked = {};
+                    if (!parsed.safety) parsed.safety = { hasIncidents: false, noIncidents: false, notes: [] };
+                    if (parsed.safety.noIncidents === undefined) parsed.safety.noIncidents = false;
+                    if (!parsed.refinedData) parsed.refinedData = {};
+                    return parsed;
+                } catch (e) {}
             }
             return null;
+        }
+
+        function saveReport() {
+            localStorage.setItem(getTodayKey(), JSON.stringify(report));
+            localStorage.setItem('fieldvoice_report', JSON.stringify(report));
         }
 
         function saveApiKey() {
@@ -310,9 +356,38 @@
             }
         }
 
+        // ============ HANDLE EDITS ============
+        function handleEdit(section) {
+            const refinedEl = document.getElementById(`${section}-refined`);
+            const text = refinedEl.innerText.trim();
+            refinedData[section] = text;
+            // Auto-save on edit
+            saveRefinedDataToReport();
+        }
+
+        function saveRefinedDataToReport() {
+            if (!report) return;
+
+            // Initialize refined data storage if needed
+            if (!report.refinedData) {
+                report.refinedData = {};
+            }
+
+            // Save all refined data
+            Object.keys(refinedData).forEach(section => {
+                if (refinedData[section]) {
+                    report.refinedData[section] = refinedData[section];
+                }
+            });
+
+            saveReport();
+        }
+
         // ============ DISPLAY ORIGINAL DATA ============
         function displayOriginalData() {
             if (!report) return;
+
+            const naMarked = report.meta?.naMarked || {};
 
             // Weather
             const weatherText = report.overview?.weather?.jobSiteCondition ||
@@ -323,16 +398,33 @@
             const activitiesText = report.activities?.map(a => a.narrative).join('\n\n') || 'No activities recorded';
             document.getElementById('activities-original').innerHTML = activitiesText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
 
-            // Issues
-            const naMarked = report.meta?.naMarked || {};
-            const issuesText = naMarked.issues ? 'N/A - No issues reported' :
-                (report.generalIssues?.join('\n\n') || 'No issues recorded');
-            document.getElementById('issues-original').innerHTML = issuesText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
+            // Issues - check for N/A
+            if (naMarked.issues) {
+                naSections.issues = true;
+                document.getElementById('issues-section').classList.add('section-na');
+                document.getElementById('issues-na-badge').classList.remove('hidden');
+                document.getElementById('issues-refine-btn').classList.add('hidden');
+                document.getElementById('issues-original').innerHTML = '<span class="text-white/40 italic">N/A - No issues reported</span>';
+                document.getElementById('issues-refined').innerHTML = '<span class="text-white/40 italic">N/A</span>';
+                document.getElementById('issues-refined').contentEditable = 'false';
+            } else {
+                const issuesText = report.generalIssues?.join('\n\n') || 'No issues recorded';
+                document.getElementById('issues-original').innerHTML = issuesText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
+            }
 
-            // Inspections
-            const inspectionsText = naMarked.inspections ? 'N/A - No inspections' :
-                (report.qaqcNotes?.join('\n\n') || 'No inspections recorded');
-            document.getElementById('inspections-original').innerHTML = inspectionsText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
+            // Inspections - check for N/A
+            if (naMarked.inspections) {
+                naSections.inspections = true;
+                document.getElementById('inspections-section').classList.add('section-na');
+                document.getElementById('inspections-na-badge').classList.remove('hidden');
+                document.getElementById('inspections-refine-btn').classList.add('hidden');
+                document.getElementById('inspections-original').innerHTML = '<span class="text-white/40 italic">N/A - No inspections</span>';
+                document.getElementById('inspections-refined').innerHTML = '<span class="text-white/40 italic">N/A</span>';
+                document.getElementById('inspections-refined').contentEditable = 'false';
+            } else {
+                const inspectionsText = report.qaqcNotes?.join('\n\n') || 'No inspections recorded';
+                document.getElementById('inspections-original').innerHTML = inspectionsText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
+            }
 
             // Safety
             let safetyText = '';
@@ -344,10 +436,19 @@
             safetyText += report.safety?.notes?.join('\n\n') || '';
             document.getElementById('safety-original').innerHTML = safetyText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
 
-            // Visitors
-            const visitorsText = naMarked.visitors ? 'N/A - No visitors' :
-                (report.visitorsRemarks?.join('\n\n') || 'No visitors recorded');
-            document.getElementById('visitors-original').innerHTML = visitorsText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
+            // Visitors - check for N/A
+            if (naMarked.visitors) {
+                naSections.visitors = true;
+                document.getElementById('visitors-section').classList.add('section-na');
+                document.getElementById('visitors-na-badge').classList.remove('hidden');
+                document.getElementById('visitors-refine-btn').classList.add('hidden');
+                document.getElementById('visitors-original').innerHTML = '<span class="text-white/40 italic">N/A - No visitors</span>';
+                document.getElementById('visitors-refined').innerHTML = '<span class="text-white/40 italic">N/A</span>';
+                document.getElementById('visitors-refined').contentEditable = 'false';
+            } else {
+                const visitorsText = report.visitorsRemarks?.join('\n\n') || 'No visitors recorded';
+                document.getElementById('visitors-original').innerHTML = visitorsText.replace(/\n/g, '<br>') || '<span class="text-white/40 italic">No data</span>';
+            }
 
             // Photos
             const photosGrid = document.getElementById('photos-grid');
@@ -363,10 +464,29 @@
             } else {
                 photosGrid.innerHTML = '<p class="text-white/40 italic col-span-full text-center py-4">No photos</p>';
             }
+
+            // Load previously saved refined data
+            if (report.refinedData) {
+                Object.keys(report.refinedData).forEach(section => {
+                    if (report.refinedData[section] && !naSections[section]) {
+                        refinedData[section] = report.refinedData[section];
+                        const refinedEl = document.getElementById(`${section}-refined`);
+                        if (refinedEl) {
+                            refinedEl.innerHTML = report.refinedData[section].replace(/\n/g, '<br>');
+                        }
+                    }
+                });
+            }
         }
 
         // ============ AI REFINEMENT ============
         async function refineSection(section) {
+            // Check if section is N/A
+            if (naSections[section]) {
+                showToast('Cannot refine N/A sections');
+                return;
+            }
+
             if (!apiKey) {
                 alert('Please enter your Groq API key first');
                 document.getElementById('apiKeyInput').focus();
@@ -377,13 +497,14 @@
             const refinedEl = document.getElementById(`${section}-refined`);
             const originalText = originalEl.textContent;
 
-            if (!originalText || originalText === 'No data' || originalText.includes('N/A')) {
+            if (!originalText || originalText === 'No data' || originalText.includes('N/A') || originalText.includes('No ') && originalText.includes(' recorded')) {
                 refinedEl.innerHTML = '<span class="text-white/40 italic">Nothing to refine</span>';
                 return;
             }
 
             // Show loading state
             refinedEl.innerHTML = '<div class="loading-shimmer rounded p-4 h-16"></div>';
+            refinedEl.contentEditable = 'false';
 
             try {
                 const sectionPrompts = {
@@ -428,16 +549,21 @@
                 // Store refined data
                 refinedData[section] = refinedText;
 
-                // Display with typing effect
+                // Display with typing effect and make editable again
                 refinedEl.innerHTML = '';
-                const p = document.createElement('p');
+                refinedEl.contentEditable = 'true';
+                const p = document.createElement('span');
                 p.className = 'typing-effect';
                 p.innerHTML = refinedText.replace(/\n/g, '<br>');
                 refinedEl.appendChild(p);
 
+                // Save to report
+                saveRefinedDataToReport();
+
             } catch (error) {
                 console.error('Refinement error:', error);
                 refinedEl.innerHTML = `<span class="text-red-400">Error: ${error.message}</span>`;
+                refinedEl.contentEditable = 'true';
             }
         }
 
@@ -449,6 +575,9 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Refining...';
 
             for (const section of sections) {
+                // Skip N/A sections
+                if (naSections[section]) continue;
+
                 await refineSection(section);
                 // Small delay between API calls to avoid rate limiting
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -462,8 +591,32 @@
             }, 3000);
         }
 
-        // ============ EXPORT ============
-        function exportReport() {
+        // ============ SAVE & VIEW ============
+        function saveAndViewReport() {
+            // Save all current edits
+            const sections = ['weather', 'activities', 'issues', 'inspections', 'safety', 'visitors'];
+            sections.forEach(section => {
+                if (!naSections[section]) {
+                    const refinedEl = document.getElementById(`${section}-refined`);
+                    const text = refinedEl.innerText.trim();
+                    if (text && !text.includes('Click') && !text.includes('Nothing to refine')) {
+                        refinedData[section] = text;
+                    }
+                }
+            });
+
+            saveRefinedDataToReport();
+            showToast('Report saved!');
+
+            setTimeout(() => {
+                window.location.href = 'report.html';
+            }, 500);
+        }
+
+        function saveAndExport() {
+            // Save first
+            saveRefinedDataToReport();
+
             let exportText = `DAILY REPORT - ${report?.overview?.date || new Date().toLocaleDateString()}\n`;
             exportText += `Project: ${report?.overview?.projectName || 'N/A'}\n`;
             exportText += `${'='.repeat(50)}\n\n`;
@@ -479,9 +632,14 @@
 
             sections.forEach(section => {
                 exportText += `${section.title}\n${'-'.repeat(section.title.length)}\n`;
-                const refined = refinedData[section.id];
-                const original = document.getElementById(`${section.id}-original`)?.textContent;
-                exportText += (refined || original || 'N/A') + '\n\n';
+
+                if (naSections[section.id]) {
+                    exportText += 'N/A\n\n';
+                } else {
+                    const refined = refinedData[section.id];
+                    const original = document.getElementById(`${section.id}-original`)?.textContent;
+                    exportText += (refined || original || 'N/A') + '\n\n';
+                }
             });
 
             // Create download
@@ -501,6 +659,9 @@
 
             const sections = ['weather', 'activities', 'issues', 'inspections', 'safety', 'visitors'];
             sections.forEach(section => {
+                if (naSections[section]) {
+                    return; // Skip N/A sections
+                }
                 const refined = refinedData[section];
                 const original = document.getElementById(`${section}-original`)?.textContent;
                 if (refined || original) {

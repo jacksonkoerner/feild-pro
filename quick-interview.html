@@ -364,7 +364,15 @@
         function getReport() {
             const saved = localStorage.getItem(getTodayKey());
             if (saved) {
-                try { return JSON.parse(saved); } catch (e) {}
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Ensure required properties exist for legacy reports
+                    if (!parsed.meta) parsed.meta = {};
+                    if (!parsed.meta.naMarked) parsed.meta.naMarked = {};
+                    if (!parsed.safety) parsed.safety = { hasIncidents: false, noIncidents: false, notes: [] };
+                    if (parsed.safety.noIncidents === undefined) parsed.safety.noIncidents = false;
+                    return parsed;
+                } catch (e) {}
             }
             return createFreshReport();
         }
@@ -375,7 +383,8 @@
                     createdAt: new Date().toISOString(),
                     interviewCompleted: false,
                     reportType: 'quick',
-                    version: 2
+                    version: 2,
+                    naMarked: {}
                 },
                 overview: {
                     projectName: "North-South Connector Road Phase 2",
@@ -396,7 +405,7 @@
                 equipment: [],
                 generalIssues: [],
                 qaqcNotes: [],
-                safety: { hasIncidents: false, notes: [] },
+                safety: { hasIncidents: false, noIncidents: false, notes: [] },
                 visitorsRemarks: [],
                 photos: []
             };
