@@ -68,9 +68,14 @@
                     <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">AI Review</p>
                     <p id="currentDate" class="text-sm font-medium text-white/70"></p>
                 </div>
-                <button onclick="saveAndExport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors">
-                    <i class="fas fa-file-export mr-2"></i>Export
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="exportTrainingData()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-colors" title="Export for prompt training">
+                        <i class="fas fa-database mr-2"></i>Training
+                    </button>
+                    <button onclick="saveAndExport()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-colors">
+                        <i class="fas fa-file-export mr-2"></i>Export
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -767,6 +772,76 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        function exportTrainingData() {
+            // Save current state first
+            saveRefinedDataToReport();
+
+            const currentDate = new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            let exportText = `GROQ TRAINING DATA EXPORT\n`;
+            exportText += `${'='.repeat(50)}\n`;
+            exportText += `Date: ${currentDate}\n`;
+            exportText += `Project: ${report?.overview?.projectName || 'N/A'}\n`;
+            exportText += `${'='.repeat(50)}\n\n`;
+
+            const sections = [
+                { id: 'weather', title: 'WEATHER & SITE CONDITIONS' },
+                { id: 'activities', title: 'WORK SUMMARY' },
+                { id: 'issues', title: 'ISSUES & DELAYS' },
+                { id: 'inspections', title: 'QA/QC INSPECTIONS' },
+                { id: 'safety', title: 'SAFETY' },
+                { id: 'visitors', title: 'VISITORS & COMMUNICATIONS' }
+            ];
+
+            sections.forEach(section => {
+                exportText += `${'='.repeat(50)}\n`;
+                exportText += `${section.title}\n`;
+                exportText += `${'='.repeat(50)}\n\n`;
+
+                if (naSections[section.id]) {
+                    exportText += `[SECTION MARKED N/A]\n\n`;
+                } else {
+                    const originalEl = document.getElementById(`${section.id}-original`);
+                    const refinedEl = document.getElementById(`${section.id}-refined`);
+
+                    const originalText = originalEl?.innerText?.trim() || '';
+                    const refinedText = refinedEl?.innerText?.trim() || '';
+
+                    exportText += `--- HUMAN INPUT ---\n`;
+                    exportText += `${originalText || '[No input provided]'}\n\n`;
+
+                    exportText += `--- AI REFINED ---\n`;
+                    if (refinedText && !refinedText.includes('Click') && !refinedText.includes('Nothing to refine')) {
+                        exportText += `${refinedText}\n\n`;
+                    } else {
+                        exportText += `[Not refined]\n\n`;
+                    }
+                }
+            });
+
+            exportText += `${'='.repeat(50)}\n`;
+            exportText += `END OF TRAINING DATA\n`;
+            exportText += `${'='.repeat(50)}\n`;
+
+            // Create download
+            const blob = new Blob([exportText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `training-data-${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Training data exported!');
         }
 
         function copyToClipboard() {
