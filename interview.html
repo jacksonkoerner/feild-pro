@@ -223,6 +223,9 @@
                 </button>
                 <div class="section-content">
                     <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('equipment')" id="equipment-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>Mark as N/A
+                        </button>
                         <div id="equipment-list" class="space-y-2">
                             <!-- Dynamic equipment -->
                         </div>
@@ -255,6 +258,9 @@
                 </button>
                 <div class="section-content">
                     <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('issues')" id="issues-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>No Issues - Mark as N/A
+                        </button>
                         <div id="issues-list" class="space-y-2">
                             <!-- Dynamic issues -->
                         </div>
@@ -287,6 +293,9 @@
                 </button>
                 <div class="section-content">
                     <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('inspections')" id="inspections-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>No Inspections - Mark as N/A
+                        </button>
                         <div id="inspections-list" class="space-y-2">
                             <!-- Dynamic inspections -->
                         </div>
@@ -319,10 +328,16 @@
                 </button>
                 <div class="section-content">
                     <div class="px-4 pb-4 space-y-3">
-                        <label class="flex items-center gap-3 p-3 bg-white/5 rounded-xl cursor-pointer">
-                            <input type="checkbox" id="has-incidents" class="w-5 h-5 rounded text-red-600 focus:ring-red-500">
-                            <span class="font-medium text-white">Safety incident occurred</span>
-                        </label>
+                        <div class="flex gap-2">
+                            <label class="flex-1 flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl cursor-pointer hover:bg-emerald-500/20 transition-colors">
+                                <input type="checkbox" id="no-incidents" class="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500">
+                                <span class="font-medium text-emerald-400">No incidents</span>
+                            </label>
+                            <label class="flex-1 flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl cursor-pointer hover:bg-red-500/20 transition-colors">
+                                <input type="checkbox" id="has-incidents" class="w-5 h-5 rounded text-red-600 focus:ring-red-500">
+                                <span class="font-medium text-red-400">Incident occurred</span>
+                            </label>
+                        </div>
                         <div id="safety-list" class="space-y-2">
                             <!-- Dynamic safety notes -->
                         </div>
@@ -355,6 +370,9 @@
                 </button>
                 <div class="section-content">
                     <div class="px-4 pb-4 space-y-3">
+                        <button onclick="markNA('visitors')" id="visitors-na-btn" class="w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium">
+                            <i class="fas fa-ban mr-2"></i>No Visitors - Mark as N/A
+                        </button>
                         <div id="visitors-list" class="space-y-2">
                             <!-- Dynamic visitors -->
                         </div>
@@ -1087,24 +1105,30 @@
                 totalWorkers > 0 ? `${totalWorkers} workers total` : 'Tap to add';
 
             // Equipment preview
+            const naMarked = report.meta.naMarked || {};
             document.getElementById('equipment-preview').textContent =
+                naMarked.equipment ? 'N/A' :
                 report.equipment.length > 0 ? `${report.equipment.length} items` : 'Tap to add';
 
             // Issues preview
             document.getElementById('issues-preview').textContent =
+                naMarked.issues ? 'N/A - No issues' :
                 report.generalIssues.length > 0 ? `${report.generalIssues.length} issues` : 'None reported';
 
             // Inspections preview
             document.getElementById('inspections-preview').textContent =
+                naMarked.inspections ? 'N/A - No inspections' :
                 report.qaqcNotes.length > 0 ? `${report.qaqcNotes.length} inspections` : 'None reported';
 
             // Safety preview
             document.getElementById('safety-preview').textContent =
                 report.safety.hasIncidents ? 'INCIDENT REPORTED' :
-                report.safety.notes.length > 0 ? 'All clear' : 'No incidents';
+                report.safety.noIncidents ? 'No incidents (confirmed)' :
+                report.safety.notes.length > 0 ? 'Notes added' : 'Tap to confirm';
 
             // Visitors preview
             document.getElementById('visitors-preview').textContent =
+                naMarked.visitors ? 'N/A - No visitors' :
                 report.visitorsRemarks.length > 0 ? `${report.visitorsRemarks.length} entries` : 'None reported';
 
             // Photos preview
@@ -1116,17 +1140,18 @@
         }
 
         function updateStatusIcons() {
+            const naMarked = report.meta.naMarked || {};
             const sections = {
                 'weather': report.overview.weather.jobSiteCondition,
                 'contractors': report.contractors.length > 0,
                 'activities': report.activities.length > 0,
                 'headcounts': report.operations.length > 0,
-                'equipment': report.equipment.length > 0,
-                'issues': true, // Optional
-                'inspections': true, // Optional
-                'safety': true, // Optional
-                'visitors': true, // Optional
-                'photos': true // Optional
+                'equipment': report.equipment.length > 0 || naMarked.equipment,
+                'issues': report.generalIssues.length > 0 || naMarked.issues,
+                'inspections': report.qaqcNotes.length > 0 || naMarked.inspections,
+                'safety': report.safety.noIncidents || report.safety.hasIncidents || report.safety.notes.length > 0,
+                'visitors': report.visitorsRemarks.length > 0 || naMarked.visitors,
+                'photos': report.photos.length > 0
             };
 
             Object.entries(sections).forEach(([section, hasData]) => {
@@ -1190,6 +1215,62 @@
             setTimeout(() => toast.remove(), 2000);
         }
 
+        // ============ N/A MARKING ============
+        function markNA(section) {
+            if (!report.meta.naMarked) report.meta.naMarked = {};
+            report.meta.naMarked[section] = true;
+
+            // Update button to show it's marked
+            const btn = document.getElementById(`${section}-na-btn`);
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>Marked as N/A';
+                btn.className = 'w-full p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm font-medium cursor-default';
+                btn.onclick = () => clearNA(section);
+            }
+
+            saveReport();
+            updateAllPreviews();
+            showToast('Marked as N/A');
+        }
+
+        function clearNA(section) {
+            if (report.meta.naMarked) {
+                delete report.meta.naMarked[section];
+            }
+
+            // Reset button
+            const btn = document.getElementById(`${section}-na-btn`);
+            if (btn) {
+                const labels = {
+                    equipment: 'Mark as N/A',
+                    issues: 'No Issues - Mark as N/A',
+                    inspections: 'No Inspections - Mark as N/A',
+                    visitors: 'No Visitors - Mark as N/A'
+                };
+                btn.innerHTML = `<i class="fas fa-ban mr-2"></i>${labels[section] || 'Mark as N/A'}`;
+                btn.className = 'w-full p-3 bg-white/5 border border-white/20 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm font-medium';
+                btn.onclick = () => markNA(section);
+            }
+
+            saveReport();
+            updateAllPreviews();
+            showToast('N/A cleared');
+        }
+
+        function updateNAButtons() {
+            const naMarked = report.meta.naMarked || {};
+            Object.keys(naMarked).forEach(section => {
+                if (naMarked[section]) {
+                    const btn = document.getElementById(`${section}-na-btn`);
+                    if (btn) {
+                        btn.innerHTML = '<i class="fas fa-check mr-2"></i>Marked as N/A';
+                        btn.className = 'w-full p-3 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400 text-sm font-medium cursor-default';
+                        btn.onclick = () => clearNA(section);
+                    }
+                }
+            });
+        }
+
         function finishReport() {
             report.overview.endTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
             report.meta.interviewCompleted = true;
@@ -1219,8 +1300,24 @@
             saveReport();
         });
 
+        document.getElementById('no-incidents').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                report.safety.hasIncidents = false;
+                report.safety.noIncidents = true;
+                document.getElementById('has-incidents').checked = false;
+            } else {
+                report.safety.noIncidents = false;
+            }
+            saveReport();
+            updateAllPreviews();
+        });
+
         document.getElementById('has-incidents').addEventListener('change', (e) => {
             report.safety.hasIncidents = e.target.checked;
+            if (e.target.checked) {
+                report.safety.noIncidents = false;
+                document.getElementById('no-incidents').checked = false;
+            }
             saveReport();
             updateAllPreviews();
         });
@@ -1259,6 +1356,11 @@
             renderAllSections();
             updateAllPreviews();
             updateProgress();
+            updateNAButtons();
+
+            // Restore checkbox states
+            document.getElementById('no-incidents').checked = report.safety.noIncidents || false;
+            document.getElementById('has-incidents').checked = report.safety.hasIncidents || false;
         });
     </script>
 </body>
