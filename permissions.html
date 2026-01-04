@@ -111,15 +111,18 @@
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">2</span>
-                        <p class="text-sm text-white/90">Tap <strong class="text-amber-300">"Website Settings"</strong></p>
+                        <div class="flex-1">
+                            <p class="text-sm text-white/90">Scroll down to <strong class="text-amber-300">"Website Settings"</strong></p>
+                            <p class="text-xs text-white/50 mt-0.5">(Shows settings for this site only)</p>
+                        </div>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">3</span>
-                        <p id="iosStep3" class="text-sm text-white/90">Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong></p>
+                        <p id="iosStep3" class="text-sm text-white/90">Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong></p>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">4</span>
-                        <p id="iosStep4" class="text-sm text-white/90">Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong></p>
+                        <p id="iosStep4" class="text-sm text-white/90">Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong></p>
                     </div>
                     <div class="flex items-start gap-3">
                         <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">5</span>
@@ -174,13 +177,13 @@
 
         // ============ CHECK IF FIRST VISIT ============
         function isFirstVisit() {
-            return !localStorage.getItem('permissions_onboarding_completed');
+            return !localStorage.getItem('fvp_onboarded');
         }
 
         // ============ PERMISSION STATUS CHECKING ============
         async function checkCurrentPermissions() {
             // Check microphone - use localStorage as source of truth for Safari
-            const micGranted = localStorage.getItem('mic_permission_granted') === 'true';
+            const micGranted = localStorage.getItem('fvp_mic_granted') === 'true';
             if (micGranted) {
                 permissionState.microphone = 'granted';
             } else {
@@ -190,8 +193,8 @@
                         const result = await navigator.permissions.query({ name: 'microphone' });
                         permissionState.microphone = result.state;
                         if (result.state === 'granted') {
-                            localStorage.setItem('mic_permission_granted', 'true');
-                            localStorage.setItem('mic_permission_date', new Date().toISOString());
+                            localStorage.setItem('fvp_mic_granted', 'true');
+                            localStorage.setItem('fvp_mic_date', new Date().toISOString());
                         }
                     }
                 } catch (e) {
@@ -201,7 +204,7 @@
             }
 
             // Check location - use localStorage as source of truth for Safari
-            const locGranted = localStorage.getItem('loc_permission_granted') === 'true';
+            const locGranted = localStorage.getItem('fvp_loc_granted') === 'true';
             if (locGranted) {
                 permissionState.location = 'granted';
             } else {
@@ -210,8 +213,8 @@
                         const result = await navigator.permissions.query({ name: 'geolocation' });
                         permissionState.location = result.state;
                         if (result.state === 'granted') {
-                            localStorage.setItem('loc_permission_granted', 'true');
-                            localStorage.setItem('loc_permission_date', new Date().toISOString());
+                            localStorage.setItem('fvp_loc_granted', 'true');
+                            localStorage.setItem('fvp_loc_date', new Date().toISOString());
                         }
                     }
                 } catch (e) {
@@ -240,8 +243,8 @@
                 stream.getTracks().forEach(track => track.stop());
 
                 permissionState.microphone = 'granted';
-                localStorage.setItem('mic_permission_granted', 'true');
-                localStorage.setItem('mic_permission_date', new Date().toISOString());
+                localStorage.setItem('fvp_mic_granted', 'true');
+                localStorage.setItem('fvp_mic_date', new Date().toISOString());
 
                 updateMicrophoneUI('granted');
                 showToast('Microphone enabled!', 'success');
@@ -285,8 +288,8 @@
                 });
 
                 permissionState.location = 'granted';
-                localStorage.setItem('loc_permission_granted', 'true');
-                localStorage.setItem('loc_permission_date', new Date().toISOString());
+                localStorage.setItem('fvp_loc_granted', 'true');
+                localStorage.setItem('fvp_loc_date', new Date().toISOString());
 
                 updateLocationUI('granted');
                 showToast('Location enabled!', 'success');
@@ -422,15 +425,15 @@
             const step3 = document.getElementById('iosStep3');
             const step4 = document.getElementById('iosStep4');
 
-            if (permissionState.location === 'denied' && permissionState.microphone === 'denied') {
-                step3.innerHTML = 'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>';
-                step4.innerHTML = 'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+            if (permissionState.microphone === 'denied' && permissionState.location === 'denied') {
+                step3.innerHTML = 'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+                step4.innerHTML = 'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>';
                 step4.parentElement.classList.remove('hidden');
-            } else if (permissionState.location === 'denied') {
-                step3.innerHTML = 'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>';
-                step4.parentElement.classList.add('hidden');
             } else if (permissionState.microphone === 'denied') {
                 step3.innerHTML = 'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+                step4.parentElement.classList.add('hidden');
+            } else if (permissionState.location === 'denied') {
+                step3.innerHTML = 'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>';
                 step4.parentElement.classList.add('hidden');
             }
 
@@ -470,15 +473,13 @@
 
         // ============ NAVIGATION ============
         function continueToApp() {
-            localStorage.setItem('permissions_onboarding_completed', 'true');
-            localStorage.setItem('permissions_onboarding_date', new Date().toISOString());
+            localStorage.setItem('fvp_onboarded', 'true');
             window.location.href = 'index.html';
         }
 
         function skipSetup() {
-            localStorage.setItem('permissions_onboarding_completed', 'true');
-            localStorage.setItem('permissions_onboarding_skipped', 'true');
-            localStorage.setItem('permissions_onboarding_date', new Date().toISOString());
+            localStorage.setItem('fvp_onboarded', 'true');
+            localStorage.setItem('fvp_skipped_permissions', 'true');
             window.location.href = 'index.html';
         }
 
