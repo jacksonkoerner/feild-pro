@@ -945,50 +945,98 @@
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isAndroid = /Android/.test(navigator.userAgent);
 
-            let title, message, instructions;
+            let title, message, steps;
 
             if (type === 'microphone') {
-                title = 'Microphone Access Required';
-                message = 'Voice recording needs microphone permission to work.';
+                title = 'Enable Microphone';
+                message = 'Voice recording requires microphone permission.';
                 if (isIOS) {
-                    instructions = 'Go to Settings > Safari > Microphone and enable access for this site.';
+                    steps = [
+                        'Open <strong>Settings</strong> app',
+                        'Scroll down and tap <strong>Safari</strong>',
+                        'Tap <strong>Microphone</strong>',
+                        'Select <strong>Allow</strong>',
+                        'Come back and tap <strong>Reload</strong>'
+                    ];
                 } else if (isAndroid) {
-                    instructions = 'Tap the lock icon in your browser address bar and enable Microphone permission.';
+                    steps = [
+                        'Tap the <strong>lock icon</strong> in address bar',
+                        'Tap <strong>Permissions</strong>',
+                        'Enable <strong>Microphone</strong>',
+                        'Tap <strong>Reload</strong> below'
+                    ];
                 } else {
-                    instructions = 'Click the lock/info icon in your browser address bar and allow microphone access.';
+                    steps = [
+                        'Click the <strong>lock icon</strong> in address bar',
+                        'Set <strong>Microphone</strong> to Allow',
+                        'Reload this page'
+                    ];
                 }
             } else if (type === 'location') {
-                title = 'Location Access Required';
-                message = 'Weather and GPS features need location permission to work.';
+                title = 'Enable Location';
+                message = 'Weather and GPS require location permission.';
                 if (isIOS) {
-                    instructions = 'Go to Settings > Safari > Location and enable access. Then reload this page.';
+                    steps = [
+                        'Open <strong>Settings</strong> app',
+                        'Scroll down and tap <strong>Safari</strong>',
+                        'Tap <strong>Location</strong>',
+                        'Select <strong>Allow</strong>',
+                        'Come back and tap <strong>Reload</strong>'
+                    ];
                 } else if (isAndroid) {
-                    instructions = 'Tap the lock icon in your browser address bar and enable Location permission. Then reload.';
+                    steps = [
+                        'Tap the <strong>lock icon</strong> in address bar',
+                        'Tap <strong>Permissions</strong>',
+                        'Enable <strong>Location</strong>',
+                        'Tap <strong>Reload</strong> below'
+                    ];
                 } else {
-                    instructions = 'Click the lock/info icon in your browser address bar and allow location access.';
+                    steps = [
+                        'Click the <strong>lock icon</strong> in address bar',
+                        'Set <strong>Location</strong> to Allow',
+                        'Reload this page'
+                    ];
                 }
             }
 
+            const stepsHtml = steps.map((step, i) => `
+                <div class="flex items-start gap-3 ${i > 0 ? 'mt-2' : ''}">
+                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">${i + 1}</span>
+                    <p class="text-sm text-white/80">${step}</p>
+                </div>
+            `).join('');
+
             const alert = document.createElement('div');
-            alert.className = 'permission-alert fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4';
+            alert.className = 'permission-alert fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4';
             alert.innerHTML = `
-                <div class="bg-slate-800 rounded-2xl p-6 max-w-sm w-full border border-white/20 shadow-2xl">
+                <div class="bg-slate-800 rounded-2xl p-5 max-w-sm w-full border border-white/20 shadow-2xl">
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
                             <i class="fas fa-${type === 'microphone' ? 'microphone-slash' : 'location-crosshairs'} text-amber-400 text-xl"></i>
                         </div>
                         <div>
-                            <p class="font-bold text-white">${title}</p>
-                            <p class="text-xs text-white/60">Permission needed</p>
+                            <p class="font-bold text-white text-lg">${title}</p>
+                            <p class="text-xs text-amber-400">Permission required</p>
                         </div>
                     </div>
-                    <p class="text-sm text-white/80 mb-3">${message}</p>
-                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
-                        <p class="text-xs text-amber-200"><i class="fas fa-info-circle mr-2"></i>${instructions}</p>
+
+                    <p class="text-sm text-white/70 mb-4">${message}</p>
+
+                    <div class="bg-slate-900/50 rounded-xl p-4 mb-4">
+                        <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3">
+                            <i class="fas fa-list-ol mr-2"></i>Follow these steps:
+                        </p>
+                        ${stepsHtml}
                     </div>
-                    <button onclick="this.closest('.permission-alert').remove()" class="w-full p-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors">
-                        Got It
-                    </button>
+
+                    <div class="flex gap-3">
+                        <button onclick="this.closest('.permission-alert').remove()" class="flex-1 p-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors">
+                            Close
+                        </button>
+                        <button onclick="location.reload()" class="flex-1 p-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors">
+                            <i class="fas fa-redo mr-2"></i>Reload
+                        </button>
+                    </div>
                 </div>
             `;
             document.body.appendChild(alert);
