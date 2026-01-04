@@ -1261,7 +1261,7 @@
                     iosNote = '<p class="text-xs text-amber-300 mb-3 flex items-center gap-2"><i class="fab fa-safari"></i>iOS Safari detected</p>';
                     steps = [
                         'Tap the <strong class="text-amber-300">"aA"</strong> icon in the address bar <span class="text-white/50">(bottom left)</span>',
-                        'Tap <strong class="text-amber-300">"Website Settings"</strong>',
+                        'Scroll down to <strong class="text-amber-300">"Website Settings"</strong> <span class="text-white/50">(for this site only)</span>',
                         'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>',
                         'Return here and tap <strong class="text-emerald-400">"Check Again"</strong>'
                     ];
@@ -1294,7 +1294,7 @@
                     iosNote = '<p class="text-xs text-amber-300 mb-3 flex items-center gap-2"><i class="fab fa-safari"></i>iOS Safari detected</p>';
                     steps = [
                         'Tap the <strong class="text-amber-300">"aA"</strong> icon in the address bar <span class="text-white/50">(bottom left)</span>',
-                        'Tap <strong class="text-amber-300">"Website Settings"</strong>',
+                        'Scroll down to <strong class="text-amber-300">"Website Settings"</strong> <span class="text-white/50">(for this site only)</span>',
                         'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>',
                         'Return here and tap <strong class="text-emerald-400">"Check Again"</strong>'
                     ];
@@ -1375,8 +1375,8 @@
         }
 
         function checkAndShowWarningBanner() {
-            const micGranted = localStorage.getItem('mic_permission_granted') === 'true';
-            const locGranted = localStorage.getItem('loc_permission_granted') === 'true';
+            const micGranted = localStorage.getItem('fvp_mic_granted') === 'true';
+            const locGranted = localStorage.getItem('fvp_loc_granted') === 'true';
 
             if (isMobile && (!micGranted || !locGranted)) {
                 document.getElementById('permissionsWarningBanner').classList.remove('hidden');
