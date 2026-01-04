@@ -41,6 +41,20 @@
 <body class="bg-slate-900 min-h-screen text-white">
     <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col">
 
+        <!-- Permissions Warning Banner -->
+        <div id="permissionsWarningBanner" class="hidden bg-amber-500/90 backdrop-blur-sm">
+            <div class="px-4 py-3 flex items-center gap-3">
+                <i class="fas fa-exclamation-triangle text-white"></i>
+                <p class="flex-1 text-sm text-white font-medium">Some features require permissions</p>
+                <a href="permissions.html" class="px-3 py-1.5 bg-white text-amber-600 font-bold text-xs rounded-lg">
+                    Enable
+                </a>
+                <button onclick="dismissWarningBanner()" class="text-white/70 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
         <!-- HEADER -->
         <header class="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm p-4 border-b border-white/10">
             <div class="flex items-center justify-between">
@@ -415,6 +429,13 @@
         let report = null;
         let permissionsChecked = false;
 
+        // ============ BROWSER DETECTION ============
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOSSafari = isIOS && isSafari;
+        const isAndroid = /Android/.test(navigator.userAgent);
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
         // ============ PERMISSIONS ============
         async function checkPermissions() {
             const micStatus = await checkMicrophonePermission();
@@ -463,10 +484,14 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                // Use getUserMedia to trigger the permission prompt
+                // Use getUserMedia to trigger the permission prompt - MUST be from user gesture
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 // Permission granted - stop the stream immediately
                 stream.getTracks().forEach(track => track.stop());
+
+                // Persist permission state in localStorage
+                localStorage.setItem('mic_permission_granted', 'true');
+                localStorage.setItem('mic_permission_date', new Date().toISOString());
 
                 updatePermissionUI('mic', 'granted');
                 showToast('Microphone enabled!');
@@ -498,6 +523,10 @@
                         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                     );
                 });
+
+                // Persist permission state in localStorage
+                localStorage.setItem('loc_permission_granted', 'true');
+                localStorage.setItem('loc_permission_date', new Date().toISOString());
 
                 updatePermissionUI('loc', 'granted');
                 showToast('Location enabled!');
@@ -1150,21 +1179,26 @@
             const existing = document.querySelector('.permission-alert');
             if (existing) existing.remove();
 
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isAndroid = /Android/.test(navigator.userAgent);
-
-            let title, message, steps;
+            let title, message, steps, iosNote = '';
 
             if (type === 'microphone') {
                 title = 'Enable Microphone';
                 message = 'Voice recording requires microphone permission.';
-                if (isIOS) {
+                if (isIOSSafari) {
+                    iosNote = '<p class="text-xs text-amber-300 mb-3 flex items-center gap-2"><i class="fab fa-safari"></i>iOS Safari detected</p>';
                     steps = [
-                        'Open <strong>Settings</strong> app',
+                        'Tap the <strong class="text-amber-300">"aA"</strong> icon in the address bar <span class="text-white/50">(bottom left)</span>',
+                        'Tap <strong class="text-amber-300">"Website Settings"</strong>',
+                        'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>',
+                        'Return here and tap <strong class="text-emerald-400">"Check Again"</strong>'
+                    ];
+                } else if (isIOS) {
+                    steps = [
+                        'Open <strong>Settings</strong> app on your iPhone',
                         'Scroll down and tap <strong>Safari</strong>',
-                        'Tap <strong>Microphone</strong>',
+                        'Under "Settings for Websites", tap <strong>Microphone</strong>',
                         'Select <strong>Allow</strong>',
-                        'Come back and tap <strong>Reload</strong>'
+                        'Return here and tap <strong>Reload</strong>'
                     ];
                 } else if (isAndroid) {
                     steps = [
@@ -1182,14 +1216,22 @@
                 }
             } else if (type === 'location') {
                 title = 'Enable Location';
-                message = 'Weather and GPS require location permission.';
-                if (isIOS) {
+                message = 'Weather and GPS tagging require location permission.';
+                if (isIOSSafari) {
+                    iosNote = '<p class="text-xs text-amber-300 mb-3 flex items-center gap-2"><i class="fab fa-safari"></i>iOS Safari detected</p>';
                     steps = [
-                        'Open <strong>Settings</strong> app',
+                        'Tap the <strong class="text-amber-300">"aA"</strong> icon in the address bar <span class="text-white/50">(bottom left)</span>',
+                        'Tap <strong class="text-amber-300">"Website Settings"</strong>',
+                        'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>',
+                        'Return here and tap <strong class="text-emerald-400">"Check Again"</strong>'
+                    ];
+                } else if (isIOS) {
+                    steps = [
+                        'Open <strong>Settings</strong> app on your iPhone',
                         'Scroll down and tap <strong>Safari</strong>',
-                        'Tap <strong>Location</strong>',
+                        'Under "Settings for Websites", tap <strong>Location</strong>',
                         'Select <strong>Allow</strong>',
-                        'Come back and tap <strong>Reload</strong>'
+                        'Return here and tap <strong>Reload</strong>'
                     ];
                 } else if (isAndroid) {
                     steps = [
@@ -1208,46 +1250,83 @@
             }
 
             const stepsHtml = steps.map((step, i) => `
-                <div class="flex items-start gap-3 ${i > 0 ? 'mt-2' : ''}">
-                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">${i + 1}</span>
-                    <p class="text-sm text-white/80">${step}</p>
+                <div class="flex items-start gap-3 ${i > 0 ? 'mt-3' : ''}">
+                    <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">${i + 1}</span>
+                    <p class="text-sm text-white/90 leading-relaxed">${step}</p>
                 </div>
             `).join('');
 
             const alert = document.createElement('div');
-            alert.className = 'permission-alert fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4';
+            alert.className = 'permission-alert fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4';
             alert.innerHTML = `
-                <div class="bg-slate-800 rounded-2xl p-5 max-w-sm w-full border border-white/20 shadow-2xl">
+                <div class="bg-slate-800 rounded-3xl p-6 max-w-sm w-full border border-white/20 shadow-2xl">
                     <div class="flex items-center gap-3 mb-4">
-                        <div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-                            <i class="fas fa-${type === 'microphone' ? 'microphone-slash' : 'location-crosshairs'} text-amber-400 text-xl"></i>
+                        <div class="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center">
+                            <i class="fas fa-${type === 'microphone' ? 'microphone-slash' : 'location-crosshairs'} text-amber-400 text-2xl"></i>
                         </div>
                         <div>
                             <p class="font-bold text-white text-lg">${title}</p>
-                            <p class="text-xs text-amber-400">Permission required</p>
+                            <p class="text-xs text-amber-400">Permission was blocked</p>
                         </div>
                     </div>
 
                     <p class="text-sm text-white/70 mb-4">${message}</p>
 
-                    <div class="bg-slate-900/50 rounded-xl p-4 mb-4">
+                    <div class="bg-slate-900/70 rounded-2xl p-4 mb-5">
+                        ${iosNote}
                         <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3">
-                            <i class="fas fa-list-ol mr-2"></i>Follow these steps:
+                            <i class="fas fa-list-ol mr-2"></i>To enable on iPhone:
                         </p>
                         ${stepsHtml}
                     </div>
 
                     <div class="flex gap-3">
-                        <button onclick="this.closest('.permission-alert').remove()" class="flex-1 p-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors">
+                        <button onclick="this.closest('.permission-alert').remove()" class="flex-1 p-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors">
                             Close
                         </button>
-                        <button onclick="location.reload()" class="flex-1 p-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors">
-                            <i class="fas fa-redo mr-2"></i>Reload
+                        <button onclick="recheckAndReload()" class="flex-1 p-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-rotate"></i>Check Again
                         </button>
                     </div>
+
+                    <p class="text-center text-white/40 text-xs mt-4">
+                        App works with limited features if permissions are denied
+                    </p>
                 </div>
             `;
             document.body.appendChild(alert);
+        }
+
+        async function recheckAndReload() {
+            // Remove the alert
+            const existing = document.querySelector('.permission-alert');
+            if (existing) existing.remove();
+
+            // Recheck permissions
+            await checkPermissions();
+
+            // If still denied, show toast
+            const micGranted = localStorage.getItem('mic_permission_granted') === 'true';
+            const locGranted = localStorage.getItem('loc_permission_granted') === 'true';
+
+            if (!micGranted && !locGranted) {
+                showToast('Permissions still blocked. Check Safari settings.');
+            } else {
+                showToast('Permissions updated!');
+            }
+        }
+
+        function dismissWarningBanner() {
+            document.getElementById('permissionsWarningBanner').classList.add('hidden');
+        }
+
+        function checkAndShowWarningBanner() {
+            const micGranted = localStorage.getItem('mic_permission_granted') === 'true';
+            const locGranted = localStorage.getItem('loc_permission_granted') === 'true';
+
+            if (isMobile && (!micGranted || !locGranted)) {
+                document.getElementById('permissionsWarningBanner').classList.remove('hidden');
+            }
         }
 
         // ============ N/A MARKING ============
@@ -1374,13 +1453,17 @@
             report.meta.reportType = 'quick';
             saveReport();
 
+            // Check and show warning banner if permissions are missing
+            checkAndShowWarningBanner();
+
             // Check permissions and show modal if needed (on mobile)
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (isMobile) {
+            // Only show modal if user hasn't completed onboarding yet
+            const onboardingCompleted = localStorage.getItem('permissions_onboarding_completed') === 'true';
+            if (isMobile && !onboardingCompleted) {
                 await checkPermissions();
             }
 
-            // Fetch weather if needed
+            // Fetch weather if needed (will silently fail if location not granted)
             if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
                 await fetchWeather();
             }

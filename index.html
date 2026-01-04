@@ -20,9 +20,37 @@
         .gradient-bg {
             background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
         }
+        @keyframes slide-down {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .slide-down { animation: slide-down 0.3s ease-out; }
     </style>
 </head>
 <body class="gradient-bg min-h-screen">
+    <!-- Permissions Banner (shown when permissions are missing) -->
+    <div id="permissionsBanner" class="hidden fixed top-0 left-0 right-0 z-50 slide-down">
+        <div class="max-w-lg mx-auto">
+            <div class="m-3 bg-amber-500/95 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-amber-400/30">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-shield-exclamation text-white text-lg"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-white text-sm">Permissions Needed</p>
+                        <p id="permissionsBannerText" class="text-xs text-amber-100">Enable mic & location for full features</p>
+                    </div>
+                    <a href="permissions.html" class="px-4 py-2 bg-white text-amber-600 font-bold text-sm rounded-xl hover:bg-amber-50 transition-colors flex-shrink-0">
+                        Enable
+                    </a>
+                    <button onclick="dismissPermissionsBanner()" class="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col pb-8">
 
         <!-- HEADER -->
@@ -554,8 +582,97 @@
             window.location.href = 'settings.html';
         }
 
+        // ============ PERMISSIONS ============
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOSSafari = isIOS && isSafari;
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        function checkPermissionState() {
+            const micGranted = localStorage.getItem('mic_permission_granted') === 'true';
+            const locGranted = localStorage.getItem('loc_permission_granted') === 'true';
+            const onboardingCompleted = localStorage.getItem('permissions_onboarding_completed') === 'true';
+            const bannerDismissed = localStorage.getItem('permissions_banner_dismissed') === 'true';
+            const bannerDismissedDate = localStorage.getItem('permissions_banner_dismissed_date');
+
+            // Reset banner dismissal after 24 hours
+            if (bannerDismissedDate) {
+                const dismissedTime = new Date(bannerDismissedDate).getTime();
+                const now = new Date().getTime();
+                const hoursSinceDismissal = (now - dismissedTime) / (1000 * 60 * 60);
+                if (hoursSinceDismissal > 24) {
+                    localStorage.removeItem('permissions_banner_dismissed');
+                    localStorage.removeItem('permissions_banner_dismissed_date');
+                }
+            }
+
+            return {
+                micGranted,
+                locGranted,
+                onboardingCompleted,
+                bannerDismissed: localStorage.getItem('permissions_banner_dismissed') === 'true',
+                allGranted: micGranted && locGranted
+            };
+        }
+
+        function shouldShowOnboarding() {
+            const state = checkPermissionState();
+            // Show onboarding on first visit if on mobile and permissions not granted
+            if (isMobile && !state.onboardingCompleted && !state.allGranted) {
+                return true;
+            }
+            return false;
+        }
+
+        function shouldShowBanner() {
+            const state = checkPermissionState();
+            // Show banner if:
+            // 1. On mobile
+            // 2. Onboarding was completed (or skipped)
+            // 3. At least one permission is missing
+            // 4. Banner wasn't dismissed recently
+            if (isMobile && state.onboardingCompleted && !state.allGranted && !state.bannerDismissed) {
+                return true;
+            }
+            return false;
+        }
+
+        function showPermissionsBanner() {
+            const state = checkPermissionState();
+            const banner = document.getElementById('permissionsBanner');
+            const bannerText = document.getElementById('permissionsBannerText');
+
+            if (!state.micGranted && !state.locGranted) {
+                bannerText.textContent = 'Enable mic & location for full features';
+            } else if (!state.micGranted) {
+                bannerText.textContent = 'Enable microphone for voice notes';
+            } else if (!state.locGranted) {
+                bannerText.textContent = 'Enable location for weather & GPS';
+            }
+
+            banner.classList.remove('hidden');
+        }
+
+        function dismissPermissionsBanner() {
+            const banner = document.getElementById('permissionsBanner');
+            banner.classList.add('hidden');
+            localStorage.setItem('permissions_banner_dismissed', 'true');
+            localStorage.setItem('permissions_banner_dismissed_date', new Date().toISOString());
+        }
+
         // ============ INIT ============
         document.addEventListener('DOMContentLoaded', () => {
+            // Check if first-time user needs permissions onboarding
+            if (shouldShowOnboarding()) {
+                window.location.href = 'permissions.html';
+                return;
+            }
+
+            // Show permissions banner if needed
+            if (shouldShowBanner()) {
+                showPermissionsBanner();
+            }
+
             // Set date
             document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
                 weekday: 'long',
