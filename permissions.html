@@ -147,11 +147,11 @@
                 </div>
             </div>
 
-            <!-- Location Troubleshooting (collapsible) -->
+            <!-- Troubleshooting Panel (collapsible) -->
             <div class="mt-4">
                 <button onclick="toggleDiagnostics()" class="text-xs text-white/30 hover:text-white/50 flex items-center gap-1 mx-auto">
                     <i class="fas fa-bug"></i>
-                    <span>Troubleshoot Location Issues</span>
+                    <span>Troubleshoot Permission Issues</span>
                     <i id="diagToggleIcon" class="fas fa-chevron-down text-[10px]"></i>
                 </button>
 
@@ -165,34 +165,70 @@
                         <span id="diagBrowser" class="text-white font-mono">--</span>
                     </div>
                     <div class="flex items-center justify-between">
+                        <span class="text-white/50">HTTPS:</span>
+                        <span id="diagHTTPS" class="text-white font-mono">--</span>
+                    </div>
+
+                    <!-- Microphone Status -->
+                    <div class="pt-2 border-t border-white/10">
+                        <p class="text-white/70 font-bold mb-2"><i class="fas fa-microphone mr-1"></i>Microphone</p>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-white/50">getUserMedia API:</span>
+                        <span id="diagMicAPI" class="text-white font-mono">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-white/50">localStorage State:</span>
+                        <span id="diagMicLocalStorage" class="text-white font-mono">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-white/50">Permission State:</span>
+                        <span id="diagMicPermState" class="text-white font-mono">--</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-white/50">Last Test:</span>
+                        <span id="diagMicLastTest" class="text-white font-mono">--</span>
+                    </div>
+
+                    <!-- Location Status -->
+                    <div class="pt-2 border-t border-white/10">
+                        <p class="text-white/70 font-bold mb-2"><i class="fas fa-location-dot mr-1"></i>Location</p>
+                    </div>
+                    <div class="flex items-center justify-between">
                         <span class="text-white/50">Geolocation API:</span>
                         <span id="diagGeoAPI" class="text-white font-mono">--</span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-white/50">localStorage State:</span>
-                        <span id="diagLocalStorage" class="text-white font-mono">--</span>
+                        <span id="diagLocLocalStorage" class="text-white font-mono">--</span>
                     </div>
                     <div class="flex items-center justify-between">
                         <span class="text-white/50">Permission State:</span>
-                        <span id="diagPermState" class="text-white font-mono">--</span>
+                        <span id="diagLocPermState" class="text-white font-mono">--</span>
                     </div>
                     <div class="flex items-center justify-between">
-                        <span class="text-white/50">Last Test Result:</span>
-                        <span id="diagLastTest" class="text-white font-mono">--</span>
+                        <span class="text-white/50">Last Test:</span>
+                        <span id="diagLocLastTest" class="text-white font-mono">--</span>
                     </div>
 
                     <div class="pt-2 border-t border-white/10 space-y-2">
-                        <button onclick="runLocationDiagnostic()" class="w-full p-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2">
+                        <button onclick="runFullDiagnostic()" class="w-full p-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2">
                             <i class="fas fa-stethoscope"></i>
                             Run Full Diagnostic
                         </button>
-                        <button onclick="clearLocationData()" class="w-full p-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium rounded-xl flex items-center justify-center gap-2">
-                            <i class="fas fa-trash"></i>
-                            Reset Location Permissions
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="clearMicrophoneData()" class="flex-1 p-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 font-medium rounded-xl flex items-center justify-center gap-2">
+                                <i class="fas fa-microphone-slash"></i>
+                                Reset Mic
+                            </button>
+                            <button onclick="clearLocationData()" class="flex-1 p-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-medium rounded-xl flex items-center justify-center gap-2">
+                                <i class="fas fa-location-crosshairs"></i>
+                                Reset Location
+                            </button>
+                        </div>
                     </div>
 
-                    <div id="diagOutput" class="hidden mt-2 p-3 bg-black/30 rounded-xl font-mono text-[10px] text-white/70 max-h-40 overflow-y-auto whitespace-pre-wrap"></div>
+                    <div id="diagOutput" class="hidden mt-2 p-3 bg-black/30 rounded-xl font-mono text-[10px] text-white/70 max-h-48 overflow-y-auto whitespace-pre-wrap"></div>
                 </div>
             </div>
 
@@ -231,23 +267,51 @@
 
         // ============ PERMISSION STATUS CHECKING ============
         async function checkCurrentPermissions() {
-            // Check microphone - use localStorage as source of truth for Safari
+            // Check microphone - ACTUALLY TEST the permission, don't just trust localStorage
             const micGranted = localStorage.getItem('fvp_mic_granted') === 'true';
             if (micGranted) {
-                permissionState.microphone = 'granted';
+                // Even if localStorage says granted, verify it actually works
+                try {
+                    await testMicrophonePermission();
+                    permissionState.microphone = 'granted';
+                } catch (err) {
+                    console.warn('Microphone permission check failed despite localStorage:', err);
+                    // Permission was revoked - clear the stale localStorage value
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        localStorage.removeItem('fvp_mic_granted');
+                        localStorage.removeItem('fvp_mic_date');
+                        permissionState.microphone = 'denied';
+                    } else if (err.name === 'NotFoundError') {
+                        // No microphone hardware
+                        permissionState.microphone = 'unavailable';
+                    } else if (err.name === 'NotReadableError' || err.name === 'AbortError') {
+                        // Hardware busy or error - might still work later
+                        permissionState.microphone = 'granted';
+                    } else {
+                        permissionState.microphone = 'prompt';
+                    }
+                }
             } else {
-                // Try Permissions API (limited Safari support)
+                // Try Permissions API first (limited Safari support)
                 try {
                     if (navigator.permissions) {
                         const result = await navigator.permissions.query({ name: 'microphone' });
                         permissionState.microphone = result.state;
                         if (result.state === 'granted') {
-                            localStorage.setItem('fvp_mic_granted', 'true');
-                            localStorage.setItem('fvp_mic_date', new Date().toISOString());
+                            // Verify it actually works
+                            try {
+                                await testMicrophonePermission();
+                                localStorage.setItem('fvp_mic_granted', 'true');
+                                localStorage.setItem('fvp_mic_date', new Date().toISOString());
+                            } catch (e) {
+                                permissionState.microphone = 'prompt';
+                            }
+                        } else if (result.state === 'denied') {
+                            localStorage.removeItem('fvp_mic_granted');
                         }
                     }
                 } catch (e) {
-                    // Permissions API not supported for microphone
+                    // Permissions API not supported for microphone (common on iOS Safari)
                     permissionState.microphone = 'prompt';
                 }
             }
@@ -321,6 +385,28 @@
             });
         }
 
+        // Test if microphone actually works (quick check)
+        async function testMicrophonePermission() {
+            // Check if getUserMedia is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw { name: 'NotSupportedError', message: 'getUserMedia not supported' };
+            }
+
+            // Request microphone access with timeout
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject({ name: 'TimeoutError', message: 'Microphone test timeout' }), 3000);
+            });
+
+            const micPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+
+            const stream = await Promise.race([micPromise, timeoutPromise]);
+
+            // Got access - immediately release the stream
+            stream.getTracks().forEach(track => track.stop());
+
+            return true;
+        }
+
         // ============ REQUEST MICROPHONE PERMISSION ============
         async function requestMicrophonePermission() {
             const btn = document.getElementById('micBtn');
@@ -328,14 +414,25 @@
 
             // Show loading state
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Requesting...</span>';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Requesting microphone...</span>';
+
+            // Log attempt for debugging
+            console.log('Requesting microphone permission...', { isIOS, isSafari, isIOSSafari });
 
             try {
+                // Check if getUserMedia is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw { name: 'NotSupportedError', message: 'getUserMedia not supported' };
+                }
+
                 // This triggers the iOS Safari permission prompt - MUST be from user gesture
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
                 // Permission granted - stop stream immediately (we just needed permission)
                 stream.getTracks().forEach(track => track.stop());
+
+                // Success! Log it
+                console.log('Microphone permission granted');
 
                 permissionState.microphone = 'granted';
                 localStorage.setItem('fvp_mic_granted', 'true');
@@ -344,20 +441,56 @@
                 updateMicrophoneUI('granted');
                 showToast('Microphone enabled!', 'success');
             } catch (err) {
-                console.error('Microphone permission error:', err);
+                console.error('Microphone permission error:', {
+                    name: err.name,
+                    message: err.message,
+                    isIOS,
+                    isSafari,
+                    isIOSSafari
+                });
 
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     permissionState.microphone = 'denied';
+                    localStorage.removeItem('fvp_mic_granted');
+                    localStorage.removeItem('fvp_mic_date');
                     updateMicrophoneUI('denied');
-                    showIOSInstructions('microphone');
+
+                    // Show iOS-specific instructions
+                    if (isIOSSafari) {
+                        showIOSInstructions('microphone');
+                    } else if (isIOS) {
+                        // iOS but not Safari (Chrome, Firefox, etc)
+                        showToast('Check Settings > Privacy > Microphone', 'warning');
+                    } else {
+                        showToast('Microphone blocked. Check browser settings.', 'warning');
+                    }
                 } else if (err.name === 'NotFoundError') {
-                    // No microphone available
-                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>No Microphone Found</span>';
+                    // No microphone hardware available
+                    permissionState.microphone = 'unavailable';
+                    btn.innerHTML = '<i class="fas fa-microphone-slash"></i><span>No Microphone Found</span>';
                     btn.className = btn.className.replace('bg-purple-600 hover:bg-purple-500', 'bg-gray-600 cursor-not-allowed');
+                    showToast('No microphone detected on this device', 'error');
+                } else if (err.name === 'NotReadableError' || err.name === 'AbortError') {
+                    // Hardware error or busy
+                    btn.innerHTML = '<i class="fas fa-redo"></i><span>Retry - Hardware Busy</span>';
+                    btn.className = btn.className.replace('bg-purple-600', 'bg-amber-600').replace('hover:bg-purple-500', 'hover:bg-amber-500');
+                    btn.disabled = false;
+                    showToast('Microphone busy. Close other apps and retry.', 'warning');
+                } else if (err.name === 'NotSupportedError') {
+                    // getUserMedia not supported
+                    permissionState.microphone = 'unavailable';
+                    btn.innerHTML = '<i class="fas fa-times-circle"></i><span>Not Supported</span>';
+                    btn.className = btn.className.replace('bg-purple-600 hover:bg-purple-500', 'bg-gray-600 cursor-not-allowed');
+                    showToast('Microphone not supported on this browser', 'error');
+                } else if (err.name === 'TimeoutError') {
+                    btn.innerHTML = '<i class="fas fa-redo"></i><span>Retry - Timed Out</span>';
+                    btn.className = btn.className.replace('bg-purple-600', 'bg-amber-600').replace('hover:bg-purple-500', 'hover:bg-amber-500');
+                    btn.disabled = false;
+                    showToast('Request timed out. Try again.', 'warning');
                 } else {
                     btn.innerHTML = originalContent;
                     btn.disabled = false;
-                    showToast('Error requesting permission', 'error');
+                    showToast(`Error: ${err.message || 'Unknown error'}`, 'error');
                 }
             }
 
@@ -597,12 +730,37 @@
             btn.disabled = true;
 
             // Clear cached permission state to force fresh check
+            localStorage.removeItem('fvp_mic_granted');
+            localStorage.removeItem('fvp_mic_date');
             localStorage.removeItem('fvp_loc_granted');
             localStorage.removeItem('fvp_loc_date');
             permissionState.microphone = 'prompt';
             permissionState.location = 'prompt';
 
-            // Actually test location permission by requesting position
+            // Test microphone permission
+            let micTestResult = null;
+            try {
+                await testMicrophonePermission();
+                permissionState.microphone = 'granted';
+                localStorage.setItem('fvp_mic_granted', 'true');
+                localStorage.setItem('fvp_mic_date', new Date().toISOString());
+                micTestResult = { success: true };
+            } catch (err) {
+                micTestResult = {
+                    success: false,
+                    name: err.name,
+                    message: getMicrophoneErrorMessage(err)
+                };
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    permissionState.microphone = 'denied';
+                } else if (err.name === 'NotFoundError') {
+                    permissionState.microphone = 'unavailable';
+                } else if (err.name === 'NotSupportedError') {
+                    permissionState.microphone = 'unsupported';
+                }
+            }
+
+            // Test location permission
             let locationTestResult = null;
             try {
                 const position = await new Promise((resolve, reject) => {
@@ -641,15 +799,23 @@
             btn.innerHTML = originalContent;
             btn.disabled = false;
 
-            // Show detailed result
+            // Show detailed results
+            const results = [];
+            if (micTestResult?.success) {
+                results.push('Mic ✓');
+            } else if (permissionState.microphone === 'denied') {
+                results.push('Mic blocked');
+            }
             if (locationTestResult?.success) {
-                showToast('Location working! Got GPS coordinates.', 'success');
+                results.push('Location ✓');
             } else if (permissionState.location === 'denied') {
-                showToast('Location blocked. Check browser & device settings.', 'warning');
-            } else if (permissionState.location === 'unavailable') {
-                showToast('Location unavailable. Check device GPS is on.', 'warning');
-            } else if (permissionState.location === 'timeout') {
-                showToast('Location timed out. Try again or move outdoors.', 'warning');
+                results.push('Location blocked');
+            }
+
+            if (micTestResult?.success && locationTestResult?.success) {
+                showToast('Both permissions working!', 'success');
+            } else if (results.length > 0) {
+                showToast(results.join(' | '), micTestResult?.success || locationTestResult?.success ? 'warning' : 'error');
             }
 
             // Log debug info for troubleshooting
@@ -658,12 +824,34 @@
                 isSafari,
                 isIOSSafari,
                 permissionState,
+                micTestResult,
                 locationTestResult,
                 localStorage: {
-                    fvp_loc_granted: localStorage.getItem('fvp_loc_granted'),
-                    fvp_loc_date: localStorage.getItem('fvp_loc_date')
+                    fvp_mic_granted: localStorage.getItem('fvp_mic_granted'),
+                    fvp_loc_granted: localStorage.getItem('fvp_loc_granted')
                 }
             });
+        }
+
+        // Get human-readable error message for microphone errors
+        function getMicrophoneErrorMessage(err) {
+            switch(err.name) {
+                case 'NotAllowedError':
+                case 'PermissionDeniedError':
+                    return 'Permission denied - browser or device blocked microphone access';
+                case 'NotFoundError':
+                    return 'No microphone found on this device';
+                case 'NotReadableError':
+                    return 'Microphone is busy or has a hardware error';
+                case 'AbortError':
+                    return 'Microphone request was aborted';
+                case 'NotSupportedError':
+                    return 'Microphone access not supported on this browser';
+                case 'TimeoutError':
+                    return 'Microphone request timed out';
+                default:
+                    return err.message || 'Unknown microphone error';
+            }
         }
 
         // Get human-readable error message for location errors
@@ -719,61 +907,143 @@
             else if (/Edge/.test(navigator.userAgent)) browser = 'Edge';
             document.getElementById('diagBrowser').textContent = browser;
 
+            // HTTPS
+            const isHTTPS = location.protocol === 'https:';
+            document.getElementById('diagHTTPS').textContent = isHTTPS ? 'Yes' : 'No (required!)';
+            document.getElementById('diagHTTPS').className = isHTTPS ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono';
+
+            // Microphone API
+            const hasMicAPI = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+            document.getElementById('diagMicAPI').textContent = hasMicAPI ? 'Available' : 'Not Available';
+            document.getElementById('diagMicAPI').className = hasMicAPI ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono';
+
+            // Microphone localStorage
+            const micGranted = localStorage.getItem('fvp_mic_granted');
+            const micDate = localStorage.getItem('fvp_mic_date');
+            let micLsState = micGranted === 'true' ? `granted (${micDate ? new Date(micDate).toLocaleDateString() : 'no date'})` : 'not set';
+            document.getElementById('diagMicLocalStorage').textContent = micLsState;
+
+            // Microphone permission state
+            const micPermEl = document.getElementById('diagMicPermState');
+            micPermEl.textContent = permissionState.microphone || 'unknown';
+            if (permissionState.microphone === 'granted') {
+                micPermEl.className = 'text-emerald-400 font-mono';
+            } else if (permissionState.microphone === 'denied') {
+                micPermEl.className = 'text-red-400 font-mono';
+            } else {
+                micPermEl.className = 'text-amber-400 font-mono';
+            }
+
             // Geolocation API
             document.getElementById('diagGeoAPI').textContent = navigator.geolocation ? 'Available' : 'Not Available';
             document.getElementById('diagGeoAPI').className = navigator.geolocation ? 'text-emerald-400 font-mono' : 'text-red-400 font-mono';
 
-            // localStorage state
+            // Location localStorage
             const locGranted = localStorage.getItem('fvp_loc_granted');
             const locDate = localStorage.getItem('fvp_loc_date');
-            let lsState = locGranted === 'true' ? `granted (${locDate ? new Date(locDate).toLocaleDateString() : 'no date'})` : 'not set';
-            document.getElementById('diagLocalStorage').textContent = lsState;
+            let locLsState = locGranted === 'true' ? `granted (${locDate ? new Date(locDate).toLocaleDateString() : 'no date'})` : 'not set';
+            document.getElementById('diagLocLocalStorage').textContent = locLsState;
 
-            // Permission state
-            document.getElementById('diagPermState').textContent = permissionState.location || 'unknown';
-            const permStateEl = document.getElementById('diagPermState');
+            // Location permission state
+            const locPermEl = document.getElementById('diagLocPermState');
+            locPermEl.textContent = permissionState.location || 'unknown';
             if (permissionState.location === 'granted') {
-                permStateEl.className = 'text-emerald-400 font-mono';
+                locPermEl.className = 'text-emerald-400 font-mono';
             } else if (permissionState.location === 'denied') {
-                permStateEl.className = 'text-red-400 font-mono';
+                locPermEl.className = 'text-red-400 font-mono';
             } else {
-                permStateEl.className = 'text-amber-400 font-mono';
+                locPermEl.className = 'text-amber-400 font-mono';
             }
         }
 
-        async function runLocationDiagnostic() {
+        async function runFullDiagnostic() {
             const output = document.getElementById('diagOutput');
             output.classList.remove('hidden');
-            output.textContent = 'Running diagnostics...\n';
+            output.textContent = 'Running full diagnostics...\n';
 
             const log = (msg) => {
                 output.textContent += msg + '\n';
                 output.scrollTop = output.scrollHeight;
             };
 
-            log(`\n=== LOCATION DIAGNOSTIC ===`);
+            log(`\n========== FULL DIAGNOSTIC ==========`);
             log(`Time: ${new Date().toISOString()}`);
-            log(`Device: ${navigator.userAgent.substring(0, 50)}...`);
+            log(`Device: ${navigator.userAgent.substring(0, 60)}...`);
             log(`isIOS: ${isIOS}, isSafari: ${isSafari}, isIOSSafari: ${isIOSSafari}`);
-            log(`Geolocation API: ${navigator.geolocation ? 'yes' : 'no'}`);
             log(`HTTPS: ${location.protocol === 'https:'}`);
-            log(`localStorage fvp_loc_granted: ${localStorage.getItem('fvp_loc_granted')}`);
 
-            // Test Permissions API
-            log(`\n--- Testing Permissions API ---`);
+            // ========== MICROPHONE DIAGNOSTIC ==========
+            log(`\n========== MICROPHONE ==========`);
+            log(`getUserMedia API: ${navigator.mediaDevices?.getUserMedia ? 'yes' : 'no'}`);
+            log(`localStorage fvp_mic_granted: ${localStorage.getItem('fvp_mic_granted')}`);
+
+            // Test microphone
+            log(`\n--- Testing Microphone Access ---`);
             try {
-                if (navigator.permissions) {
-                    const result = await navigator.permissions.query({ name: 'geolocation' });
-                    log(`Permissions API result: ${result.state}`);
-                } else {
-                    log(`Permissions API: not available`);
+                const startTime = Date.now();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const elapsed = Date.now() - startTime;
+
+                // Get track info
+                const audioTrack = stream.getAudioTracks()[0];
+                log(`SUCCESS! Got microphone in ${elapsed}ms`);
+                log(`Track label: ${audioTrack.label || 'Unknown'}`);
+                log(`Track state: ${audioTrack.readyState}`);
+
+                // Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+
+                document.getElementById('diagMicLastTest').textContent = 'SUCCESS';
+                document.getElementById('diagMicLastTest').className = 'text-emerald-400 font-mono';
+
+                // Update state
+                permissionState.microphone = 'granted';
+                localStorage.setItem('fvp_mic_granted', 'true');
+                localStorage.setItem('fvp_mic_date', new Date().toISOString());
+
+            } catch (err) {
+                log(`FAILED: ${err.name} - ${getMicrophoneErrorMessage(err)}`);
+
+                document.getElementById('diagMicLastTest').textContent = `FAILED (${err.name})`;
+                document.getElementById('diagMicLastTest').className = 'text-red-400 font-mono';
+
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    log(`\n--- MICROPHONE PERMISSION DENIED ---`);
+                    log(`The browser or device has blocked microphone access.`);
+                    permissionState.microphone = 'denied';
+                    if (isIOSSafari) {
+                        log(`\niOS Safari Fix:`);
+                        log(`1. Tap the "aA" button in Safari address bar`);
+                        log(`2. Select "Website Settings"`);
+                        log(`3. Set Microphone to "Allow"`);
+                        log(`4. Come back and try again`);
+                        log(`\nAlso check:`);
+                        log(`Settings > Safari > Microphone > set to "Allow"`);
+                    } else if (isIOS) {
+                        log(`\niOS Fix:`);
+                        log(`Settings > Privacy & Security > Microphone`);
+                        log(`- Make sure your browser has access`);
+                    }
+                    localStorage.removeItem('fvp_mic_granted');
+                    localStorage.removeItem('fvp_mic_date');
+                } else if (err.name === 'NotFoundError') {
+                    log(`\n--- NO MICROPHONE FOUND ---`);
+                    log(`No microphone hardware detected on this device.`);
+                    permissionState.microphone = 'unavailable';
+                } else if (err.name === 'NotReadableError') {
+                    log(`\n--- MICROPHONE BUSY ---`);
+                    log(`The microphone is being used by another app.`);
+                    log(`Close other apps using the microphone and try again.`);
                 }
-            } catch (e) {
-                log(`Permissions API error: ${e.message}`);
             }
 
-            // Test actual geolocation
-            log(`\n--- Testing Geolocation ---`);
+            // ========== LOCATION DIAGNOSTIC ==========
+            log(`\n========== LOCATION ==========`);
+            log(`Geolocation API: ${navigator.geolocation ? 'yes' : 'no'}`);
+            log(`localStorage fvp_loc_granted: ${localStorage.getItem('fvp_loc_granted')}`);
+
+            // Test location
+            log(`\n--- Testing Location Access ---`);
             try {
                 const startTime = Date.now();
                 const position = await new Promise((resolve, reject) => {
@@ -790,25 +1060,24 @@
                 log(`Longitude: ${position.coords.longitude.toFixed(6)}`);
                 log(`Accuracy: ${position.coords.accuracy.toFixed(0)}m`);
 
-                document.getElementById('diagLastTest').textContent = 'SUCCESS';
-                document.getElementById('diagLastTest').className = 'text-emerald-400 font-mono';
+                document.getElementById('diagLocLastTest').textContent = 'SUCCESS';
+                document.getElementById('diagLocLastTest').className = 'text-emerald-400 font-mono';
 
                 // Update state
                 permissionState.location = 'granted';
                 localStorage.setItem('fvp_loc_granted', 'true');
                 localStorage.setItem('fvp_loc_date', new Date().toISOString());
-                updateAllUI();
-                updateDiagnosticsDisplay();
 
             } catch (err) {
                 log(`FAILED: Code ${err.code} - ${getLocationErrorMessage(err)}`);
 
-                document.getElementById('diagLastTest').textContent = `FAILED (code ${err.code})`;
-                document.getElementById('diagLastTest').className = 'text-red-400 font-mono';
+                document.getElementById('diagLocLastTest').textContent = `FAILED (code ${err.code})`;
+                document.getElementById('diagLocLastTest').className = 'text-red-400 font-mono';
 
                 if (err.code === 1) {
-                    log(`\n--- PERMISSION DENIED ---`);
+                    log(`\n--- LOCATION PERMISSION DENIED ---`);
                     log(`The browser or device has blocked location access.`);
+                    permissionState.location = 'denied';
                     if (isIOSSafari) {
                         log(`\niOS Safari Fix:`);
                         log(`1. Tap the "aA" button in Safari address bar`);
@@ -820,33 +1089,56 @@
                         log(`- Make sure Location Services is ON`);
                         log(`- Make sure Safari is set to "While Using"`);
                     } else if (isIOS) {
-                        log(`\niOS Fix (non-Safari browser):`);
+                        log(`\niOS Fix:`);
                         log(`Settings > Privacy & Security > Location Services`);
                         log(`- Make sure Location Services is ON`);
                         log(`- Find your browser and set to "While Using"`);
                     }
-
-                    // Clear stale data
                     localStorage.removeItem('fvp_loc_granted');
                     localStorage.removeItem('fvp_loc_date');
                 } else if (err.code === 2) {
                     log(`\n--- POSITION UNAVAILABLE ---`);
                     log(`Could not determine your location.`);
-                    log(`Possible causes:`);
-                    log(`- GPS/Location is disabled on device`);
-                    log(`- Airplane mode is on`);
-                    log(`- You're indoors with poor GPS signal`);
-                    log(`- Network location services unavailable`);
+                    log(`Possible causes: GPS disabled, airplane mode, indoors`);
                 } else if (err.code === 3) {
                     log(`\n--- TIMEOUT ---`);
                     log(`Location request took too long.`);
-                    log(`Try moving to a location with better GPS signal.`);
                 }
-
-                updateDiagnosticsDisplay();
             }
 
-            log(`\n=== END DIAGNOSTIC ===`);
+            updateAllUI();
+            updateDiagnosticsDisplay();
+
+            log(`\n========== END DIAGNOSTIC ==========`);
+        }
+
+        function clearMicrophoneData() {
+            localStorage.removeItem('fvp_mic_granted');
+            localStorage.removeItem('fvp_mic_date');
+            permissionState.microphone = 'prompt';
+
+            // Reset the UI
+            const card = document.getElementById('micCard');
+            card.className = 'bg-white/10 backdrop-blur-sm rounded-3xl p-5 border border-white/10 transition-all duration-300';
+
+            const iconContainer = document.getElementById('micIconContainer');
+            iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center flex-shrink-0';
+
+            const icon = document.getElementById('micIcon');
+            icon.className = 'fas fa-microphone text-purple-400 text-xl';
+
+            const status = document.getElementById('micStatus');
+            status.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="text-xs text-amber-400 font-medium">Not enabled</span>';
+
+            const btn = document.getElementById('micBtn');
+            btn.innerHTML = '<i class="fas fa-microphone"></i><span>Enable Microphone for Voice Input</span>';
+            btn.className = 'w-full mt-4 p-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3';
+            btn.disabled = false;
+            btn.style.minHeight = '56px';
+
+            updateProgress();
+            updateDiagnosticsDisplay();
+            showToast('Microphone data cleared. Try enabling again.', 'success');
         }
 
         function clearLocationData() {

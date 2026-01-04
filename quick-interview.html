@@ -774,17 +774,49 @@
             };
 
             recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
+                console.error('Speech recognition error:', {
+                    error: event.error,
+                    message: event.message
+                });
                 isRecording = false;
 
-                // Handle permission denied
-                if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-                    cancelVoice();
-                    showPermissionAlert('microphone');
-                } else if (event.error === 'no-speech') {
-                    // No speech detected - just ignore
-                } else {
-                    showToast('Voice recording error. Please try again.');
+                // Handle different error types
+                switch(event.error) {
+                    case 'not-allowed':
+                    case 'permission-denied':
+                        // Clear stale localStorage
+                        localStorage.removeItem('fvp_mic_granted');
+                        localStorage.removeItem('fvp_mic_date');
+                        cancelVoice();
+                        showPermissionAlert('microphone');
+                        break;
+
+                    case 'no-speech':
+                        // No speech detected - just show a gentle reminder
+                        showToast('No speech detected. Tap mic to try again.', 'info');
+                        break;
+
+                    case 'audio-capture':
+                        // Microphone not available or busy
+                        showToast('Microphone unavailable. Close other apps.', 'warning');
+                        break;
+
+                    case 'network':
+                        // Network error (needed for some speech recognition)
+                        showToast('Network error. Check your connection.', 'warning');
+                        break;
+
+                    case 'aborted':
+                        // User or system aborted - just ignore
+                        break;
+
+                    case 'service-not-allowed':
+                        // Speech recognition service blocked
+                        showToast('Speech service blocked. Check browser settings.', 'error');
+                        break;
+
+                    default:
+                        showToast('Voice recording error. Please try again.', 'warning');
                 }
             };
 
