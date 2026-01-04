@@ -224,6 +224,64 @@
             location: 'prompt'
         };
 
+        // ============ MICROPHONE STATE ============
+        let microphoneState = {
+            status: 'unknown',  // 'unknown', 'testing', 'working', 'error', 'denied', 'unavailable'
+            lastError: null,
+            lastTested: null
+        };
+
+        // ============ MICROPHONE ERROR DEFINITIONS ============
+        const MIC_ERRORS = {
+            'NotAllowedError': {
+                title: 'Microphone Blocked',
+                message: 'Browser blocked microphone access.',
+                recovery: 'Check browser permissions in settings.',
+                severity: 'denied'
+            },
+            'PermissionDeniedError': {
+                title: 'Permission Denied',
+                message: 'You denied microphone permission.',
+                recovery: 'Tap settings to allow microphone access.',
+                severity: 'denied'
+            },
+            'NotFoundError': {
+                title: 'No Microphone Found',
+                message: 'No microphone detected on this device.',
+                recovery: 'Connect a microphone or check device settings.',
+                severity: 'unavailable'
+            },
+            'NotReadableError': {
+                title: 'Microphone In Use',
+                message: 'Another app is using the microphone.',
+                recovery: 'Close other apps using the mic and try again.',
+                severity: 'error'
+            },
+            'SecurityError': {
+                title: 'Security Error',
+                message: 'Page must use HTTPS for microphone.',
+                recovery: 'Access this site via HTTPS.',
+                severity: 'error'
+            },
+            'TypeError': {
+                title: 'Browser Error',
+                message: 'Browser doesn\'t support audio capture.',
+                recovery: 'Try Chrome or Safari.',
+                severity: 'unavailable'
+            }
+        };
+
+        const DEFAULT_MIC_ERROR = {
+            title: 'Microphone Error',
+            message: 'Something went wrong with the microphone.',
+            recovery: 'Try again or restart the app.',
+            severity: 'error'
+        };
+
+        function getMicrophoneErrorInfo(errorName) {
+            return MIC_ERRORS[errorName] || DEFAULT_MIC_ERROR;
+        }
+
         // ============ CHECK IF FIRST VISIT ============
         function isFirstVisit() {
             return !localStorage.getItem('fvp_onboarded');
@@ -324,40 +382,94 @@
         // ============ REQUEST MICROPHONE PERMISSION ============
         async function requestMicrophonePermission() {
             const btn = document.getElementById('micBtn');
+            const status = document.getElementById('micStatus');
             const originalContent = btn.innerHTML;
 
             // Show loading state
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Requesting...</span>';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Testing microphone...</span>';
+            status.innerHTML = '<span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span><span class="text-xs text-indigo-400 font-medium">Testing...</span>';
+
+            microphoneState.status = 'testing';
+            microphoneState.lastTested = new Date().toISOString();
 
             try {
-                // This triggers the iOS Safari permission prompt - MUST be from user gesture
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw { name: 'TypeError', message: 'getUserMedia not supported' };
+                }
 
-                // Permission granted - stop stream immediately (we just needed permission)
+                // This triggers the iOS Safari permission prompt - MUST be from user gesture
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                // Check if we actually got audio tracks
+                const audioTracks = stream.getAudioTracks();
+                if (audioTracks.length === 0) {
+                    stream.getTracks().forEach(track => track.stop());
+                    throw { name: 'NotFoundError', message: 'No audio tracks in stream' };
+                }
+
+                // Check track state
+                const track = audioTracks[0];
+                console.log('[Mic Test] Audio track:', {
+                    label: track.label,
+                    enabled: track.enabled,
+                    muted: track.muted,
+                    readyState: track.readyState
+                });
+
+                if (track.muted || track.readyState !== 'live') {
+                    stream.getTracks().forEach(track => track.stop());
+                    throw { name: 'NotReadableError', message: 'Audio track is muted or not live' };
+                }
+
+                // Permission granted and working - stop stream
                 stream.getTracks().forEach(track => track.stop());
 
                 permissionState.microphone = 'granted';
+                microphoneState.status = 'working';
+                microphoneState.lastError = null;
                 localStorage.setItem('fvp_mic_granted', 'true');
-                localStorage.setItem('fvp_mic_date', new Date().toISOString());
+                localStorage.setItem('fvp_mic_tested', new Date().toISOString());
 
                 updateMicrophoneUI('granted');
-                showToast('Microphone enabled!', 'success');
+                showToast('Microphone enabled and working!', 'success');
             } catch (err) {
-                console.error('Microphone permission error:', err);
+                console.error('Microphone permission error:', err.name, err.message);
 
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                const errorInfo = getMicrophoneErrorInfo(err.name);
+                microphoneState.status = errorInfo.severity;
+                microphoneState.lastError = {
+                    name: err.name,
+                    message: err.message,
+                    info: errorInfo,
+                    timestamp: new Date().toISOString()
+                };
+
+                if (errorInfo.severity === 'denied') {
                     permissionState.microphone = 'denied';
+                    localStorage.removeItem('fvp_mic_granted');
+                    localStorage.removeItem('fvp_mic_tested');
                     updateMicrophoneUI('denied');
+                    status.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span><span class="text-xs text-red-400 font-medium">${errorInfo.message}</span>`;
                     showIOSInstructions('microphone');
-                } else if (err.name === 'NotFoundError') {
-                    // No microphone available
-                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>No Microphone Found</span>';
+                } else if (errorInfo.severity === 'unavailable') {
+                    btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>${errorInfo.title}</span>`;
                     btn.className = btn.className.replace('bg-purple-600 hover:bg-purple-500', 'bg-gray-600 cursor-not-allowed');
+                    status.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="text-xs text-amber-400 font-medium">${errorInfo.message}</span>`;
+                    showToast(errorInfo.recovery, 'warning');
                 } else {
-                    btn.innerHTML = originalContent;
+                    // Temporary error - allow retry
+                    btn.innerHTML = '<i class="fas fa-redo"></i><span>Retry - ' + errorInfo.title + '</span>';
+                    btn.className = btn.className.replace('bg-purple-600', 'bg-amber-600').replace('hover:bg-purple-500', 'hover:bg-amber-500');
                     btn.disabled = false;
-                    showToast('Error requesting permission', 'error');
+                    status.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="text-xs text-amber-400 font-medium">${errorInfo.message}</span>`;
+                    showToast(errorInfo.recovery, 'warning');
                 }
             }
 
@@ -472,8 +584,9 @@
                 card.className = 'bg-emerald-500/10 backdrop-blur-sm rounded-3xl p-5 border border-emerald-500/30 transition-all duration-300';
                 iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0';
                 icon.className = 'fas fa-check text-emerald-400 text-xl';
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-400 font-medium">Enabled</span>';
-                btn.innerHTML = '<i class="fas fa-check-circle"></i><span>Microphone Enabled</span>';
+                // Show "Verified Working" instead of just "Enabled"
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-400 font-medium">Verified Working</span>';
+                btn.innerHTML = '<i class="fas fa-check-circle"></i><span>Microphone Working</span>';
                 btn.className = 'w-full mt-4 p-4 bg-emerald-500/30 text-emerald-300 font-bold rounded-2xl cursor-default flex items-center justify-center gap-3';
                 btn.disabled = true;
                 btn.style.minHeight = '56px';
@@ -481,7 +594,9 @@
                 card.className = 'bg-red-500/10 backdrop-blur-sm rounded-3xl p-5 border border-red-500/30 transition-all duration-300';
                 iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center flex-shrink-0';
                 icon.className = 'fas fa-microphone-slash text-red-400 text-xl';
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span class="text-xs text-red-400 font-medium">Blocked - see instructions below</span>';
+                // Show more descriptive error message
+                const errorMsg = microphoneState.lastError?.info?.message || 'Blocked - see instructions below';
+                status.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span><span class="text-xs text-red-400 font-medium">${errorMsg}</span>`;
                 btn.innerHTML = '<i class="fas fa-lock"></i><span>Permission Blocked</span>';
                 btn.className = 'w-full mt-4 p-4 bg-red-500/30 text-red-300 font-bold rounded-2xl cursor-default flex items-center justify-center gap-3';
                 btn.disabled = true;

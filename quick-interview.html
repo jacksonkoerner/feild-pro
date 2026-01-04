@@ -36,6 +36,27 @@
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Microphone button states */
+        .voice-btn.mic-testing {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        .voice-btn.mic-working {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .voice-btn.mic-denied {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            cursor: pointer;
+        }
+        .voice-btn.mic-error {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            cursor: pointer;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.95); }
+        }
     </style>
 </head>
 <body class="bg-slate-900 min-h-screen text-white">
@@ -429,12 +450,302 @@
         let report = null;
         let permissionsChecked = false;
 
+        // ============ MICROPHONE STATE ============
+        let microphoneState = {
+            status: 'unknown',  // 'unknown', 'testing', 'working', 'error', 'denied', 'unavailable'
+            lastError: null,
+            lastTested: null,
+            audioStream: null
+        };
+
         // ============ BROWSER DETECTION ============
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         const isIOSSafari = isIOS && isSafari;
         const isAndroid = /Android/.test(navigator.userAgent);
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // ============ MICROPHONE ERROR DEFINITIONS ============
+        const MIC_ERRORS = {
+            // getUserMedia errors
+            'NotAllowedError': {
+                title: 'Microphone Blocked',
+                message: 'Browser blocked microphone access.',
+                recovery: 'Check browser permissions in settings.',
+                icon: 'fa-microphone-slash',
+                severity: 'denied'
+            },
+            'PermissionDeniedError': {
+                title: 'Permission Denied',
+                message: 'You denied microphone permission.',
+                recovery: 'Tap settings to allow microphone access.',
+                icon: 'fa-lock',
+                severity: 'denied'
+            },
+            'NotFoundError': {
+                title: 'No Microphone Found',
+                message: 'No microphone detected on this device.',
+                recovery: 'Connect a microphone or check device settings.',
+                icon: 'fa-microphone-slash',
+                severity: 'unavailable'
+            },
+            'NotReadableError': {
+                title: 'Microphone In Use',
+                message: 'Another app is using the microphone.',
+                recovery: 'Close other apps using the mic and try again.',
+                icon: 'fa-ban',
+                severity: 'error'
+            },
+            'OverconstrainedError': {
+                title: 'Microphone Error',
+                message: 'Microphone doesn\'t meet requirements.',
+                recovery: 'Try a different microphone.',
+                icon: 'fa-exclamation-triangle',
+                severity: 'error'
+            },
+            'AbortError': {
+                title: 'Request Cancelled',
+                message: 'Microphone request was cancelled.',
+                recovery: 'Try again.',
+                icon: 'fa-times-circle',
+                severity: 'error'
+            },
+            'SecurityError': {
+                title: 'Security Error',
+                message: 'Page must use HTTPS for microphone.',
+                recovery: 'Access this site via HTTPS.',
+                icon: 'fa-shield-halved',
+                severity: 'error'
+            },
+            'TypeError': {
+                title: 'Browser Error',
+                message: 'Browser doesn\'t support audio capture.',
+                recovery: 'Try Chrome or Safari.',
+                icon: 'fa-browser',
+                severity: 'unavailable'
+            },
+            // SpeechRecognition errors
+            'not-allowed': {
+                title: 'Speech Recognition Blocked',
+                message: 'Microphone access was denied.',
+                recovery: 'Enable microphone in browser settings.',
+                icon: 'fa-microphone-slash',
+                severity: 'denied'
+            },
+            'service-not-allowed': {
+                title: 'Service Blocked',
+                message: 'Speech recognition service is blocked.',
+                recovery: 'Check browser settings or try a different browser.',
+                icon: 'fa-cloud-slash',
+                severity: 'error'
+            },
+            'audio-capture': {
+                title: 'Audio Capture Failed',
+                message: 'Could not capture audio from microphone.',
+                recovery: 'Check microphone connection and try again.',
+                icon: 'fa-volume-xmark',
+                severity: 'error'
+            },
+            'network': {
+                title: 'Network Error',
+                message: 'Speech recognition needs internet.',
+                recovery: 'Check your internet connection.',
+                icon: 'fa-wifi-slash',
+                severity: 'error'
+            },
+            'aborted': {
+                title: 'Recording Stopped',
+                message: 'Speech recognition was stopped.',
+                recovery: 'Tap the microphone to try again.',
+                icon: 'fa-stop-circle',
+                severity: 'info'
+            },
+            'language-not-supported': {
+                title: 'Language Not Supported',
+                message: 'English speech recognition unavailable.',
+                recovery: 'Try a different browser.',
+                icon: 'fa-language',
+                severity: 'error'
+            },
+            'no-speech': {
+                title: 'No Speech Detected',
+                message: 'Didn\'t hear anything.',
+                recovery: 'Speak clearly into the microphone.',
+                icon: 'fa-volume-off',
+                severity: 'info'
+            },
+            'bad-grammar': {
+                title: 'Recognition Error',
+                message: 'Could not understand speech.',
+                recovery: 'Speak more clearly and try again.',
+                icon: 'fa-comment-slash',
+                severity: 'info'
+            }
+        };
+
+        // Default error for unknown cases
+        const DEFAULT_MIC_ERROR = {
+            title: 'Microphone Error',
+            message: 'Something went wrong with the microphone.',
+            recovery: 'Try again or restart the app.',
+            icon: 'fa-exclamation-circle',
+            severity: 'error'
+        };
+
+        // ============ MICROPHONE TESTING ============
+        // Get detailed error info from error name/type
+        function getMicrophoneErrorInfo(errorName) {
+            return MIC_ERRORS[errorName] || DEFAULT_MIC_ERROR;
+        }
+
+        // Test if microphone actually works by attempting to capture audio
+        async function testMicrophone(showUI = true) {
+            console.log('[Mic Test] Starting microphone test...');
+            microphoneState.status = 'testing';
+            microphoneState.lastTested = new Date().toISOString();
+
+            if (showUI) {
+                updateMicrophoneStatusUI('testing');
+            }
+
+            try {
+                // Check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw { name: 'TypeError', message: 'getUserMedia not supported' };
+                }
+
+                // Try to get audio stream
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                // Check if we actually got audio tracks
+                const audioTracks = stream.getAudioTracks();
+                if (audioTracks.length === 0) {
+                    stream.getTracks().forEach(track => track.stop());
+                    throw { name: 'NotFoundError', message: 'No audio tracks in stream' };
+                }
+
+                // Check track state
+                const track = audioTracks[0];
+                console.log('[Mic Test] Audio track:', {
+                    label: track.label,
+                    enabled: track.enabled,
+                    muted: track.muted,
+                    readyState: track.readyState
+                });
+
+                if (track.muted || track.readyState !== 'live') {
+                    stream.getTracks().forEach(track => track.stop());
+                    throw { name: 'NotReadableError', message: 'Audio track is muted or not live' };
+                }
+
+                // Success! Stop the stream
+                stream.getTracks().forEach(track => track.stop());
+
+                microphoneState.status = 'working';
+                microphoneState.lastError = null;
+                localStorage.setItem('fvp_mic_granted', 'true');
+                localStorage.setItem('fvp_mic_tested', new Date().toISOString());
+
+                if (showUI) {
+                    updateMicrophoneStatusUI('working');
+                }
+
+                console.log('[Mic Test] SUCCESS - Microphone is working');
+                return { success: true, status: 'working' };
+
+            } catch (err) {
+                console.error('[Mic Test] FAILED:', err.name, err.message);
+
+                const errorInfo = getMicrophoneErrorInfo(err.name);
+                microphoneState.status = errorInfo.severity;
+                microphoneState.lastError = {
+                    name: err.name,
+                    message: err.message,
+                    info: errorInfo,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Clear stale permission data if denied
+                if (errorInfo.severity === 'denied') {
+                    localStorage.removeItem('fvp_mic_granted');
+                    localStorage.removeItem('fvp_mic_tested');
+                }
+
+                if (showUI) {
+                    updateMicrophoneStatusUI(errorInfo.severity, errorInfo);
+                }
+
+                return {
+                    success: false,
+                    status: errorInfo.severity,
+                    error: errorInfo
+                };
+            }
+        }
+
+        // Check if Speech Recognition is available
+        function checkSpeechRecognitionSupport() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                return {
+                    supported: false,
+                    error: {
+                        title: 'Speech Recognition Unavailable',
+                        message: 'This browser doesn\'t support speech recognition.',
+                        recovery: 'Try Chrome, Safari, or Edge browser.',
+                        icon: 'fa-comment-slash',
+                        severity: 'unavailable'
+                    }
+                };
+            }
+            return { supported: true };
+        }
+
+        // Update microphone status in the UI
+        function updateMicrophoneStatusUI(status, errorInfo = null) {
+            const voiceBtns = document.querySelectorAll('.voice-btn');
+
+            voiceBtns.forEach(btn => {
+                // Remove any existing status classes
+                btn.classList.remove('mic-testing', 'mic-working', 'mic-error', 'mic-denied');
+
+                switch(status) {
+                    case 'testing':
+                        btn.classList.add('mic-testing');
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                        btn.title = 'Testing microphone...';
+                        break;
+                    case 'working':
+                        btn.classList.add('mic-working');
+                        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+                        btn.title = 'Microphone ready';
+                        break;
+                    case 'denied':
+                        btn.classList.add('mic-denied');
+                        btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                        btn.title = errorInfo?.message || 'Microphone blocked';
+                        break;
+                    case 'unavailable':
+                        btn.classList.add('mic-error');
+                        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                        btn.title = errorInfo?.message || 'Microphone unavailable';
+                        break;
+                    case 'error':
+                        btn.classList.add('mic-error');
+                        btn.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+                        btn.title = errorInfo?.message || 'Microphone error';
+                        break;
+                    default:
+                        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+                        btn.title = 'Tap to record';
+                }
+            });
+        }
 
         // ============ PERMISSIONS ============
         async function checkPermissions() {
@@ -454,11 +765,34 @@
         }
 
         async function checkMicrophonePermission() {
+            // If we have a cached test result from this session, use it
+            const lastTested = localStorage.getItem('fvp_mic_tested');
+            const wasGranted = localStorage.getItem('fvp_mic_granted') === 'true';
+
+            // If tested recently (within 5 minutes), trust the cached result
+            if (lastTested && wasGranted) {
+                const testedAt = new Date(lastTested);
+                const now = new Date();
+                const fiveMinutes = 5 * 60 * 1000;
+                if (now - testedAt < fiveMinutes) {
+                    microphoneState.status = 'working';
+                    return 'granted';
+                }
+            }
+
             try {
                 // Try permissions API first (not always supported)
                 if (navigator.permissions) {
                     const result = await navigator.permissions.query({ name: 'microphone' });
-                    return result.state; // 'granted', 'denied', or 'prompt'
+                    if (result.state === 'denied') {
+                        microphoneState.status = 'denied';
+                        return 'denied';
+                    }
+                    if (result.state === 'granted') {
+                        // Even if API says granted, we should verify it works
+                        // But don't block on this - return granted and test async
+                        return 'granted';
+                    }
                 }
             } catch (e) {
                 // Permissions API not supported for microphone
@@ -482,28 +816,30 @@
 
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            status.textContent = 'Testing...';
 
-            try {
-                // Use getUserMedia to trigger the permission prompt - MUST be from user gesture
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                // Permission granted - stop the stream immediately
-                stream.getTracks().forEach(track => track.stop());
+            // Use the comprehensive microphone test
+            const result = await testMicrophone(true);
 
-                // Persist permission state in localStorage
-                localStorage.setItem('fvp_mic_granted', 'true');
-                localStorage.setItem('fvp_mic_date', new Date().toISOString());
-
+            if (result.success) {
                 updatePermissionUI('mic', 'granted');
-                showToast('Microphone enabled!');
-            } catch (err) {
-                console.error('Microphone permission error:', err);
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                showToast('Microphone enabled and working!', 'success');
+            } else {
+                const errorInfo = result.error;
+
+                if (errorInfo.severity === 'denied') {
                     updatePermissionUI('mic', 'denied');
+                    status.textContent = errorInfo.message;
                     showPermissionAlert('microphone');
-                } else {
-                    status.textContent = 'Not supported';
+                } else if (errorInfo.severity === 'unavailable') {
+                    status.textContent = errorInfo.message;
                     btn.textContent = 'N/A';
                     btn.disabled = true;
+                    btn.className = 'px-4 py-2 bg-gray-600 text-white text-xs font-bold rounded-lg cursor-not-allowed';
+                } else {
+                    status.textContent = errorInfo.message;
+                    btn.innerHTML = '<i class="fas fa-redo mr-1"></i>Retry';
+                    btn.disabled = false;
                 }
             }
         }
@@ -555,14 +891,20 @@
                 btn.innerHTML = '<i class="fas fa-check"></i>';
                 btn.className = 'px-4 py-2 bg-emerald-500 text-white text-xs font-bold rounded-lg cursor-default';
                 btn.disabled = true;
-                status.textContent = 'Enabled';
+                // Show "Verified" for microphone since we actually tested it
+                status.textContent = type === 'mic' ? 'Verified Working' : 'Enabled';
                 status.className = 'text-xs text-emerald-400';
                 row.className = 'bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4';
             } else if (state === 'denied') {
                 btn.textContent = 'Denied';
                 btn.className = 'px-4 py-2 bg-red-500/50 text-white text-xs font-bold rounded-lg';
                 btn.disabled = true;
-                status.textContent = 'Blocked - check settings';
+                // Show more specific error if available
+                if (type === 'mic' && microphoneState.lastError?.info?.message) {
+                    status.textContent = microphoneState.lastError.info.message;
+                } else {
+                    status.textContent = 'Blocked - check settings';
+                }
                 status.className = 'text-xs text-red-400';
                 row.className = 'bg-red-500/10 border border-red-500/30 rounded-xl p-4';
             } else {
@@ -724,11 +1066,47 @@
         }
 
         // ============ VOICE RECORDING ============
-        function recordVoice(section) {
+        async function recordVoice(section) {
+            // First, check if speech recognition is supported
+            const speechCheck = checkSpeechRecognitionSupport();
+            if (!speechCheck.supported) {
+                showMicrophoneError(speechCheck.error);
+                return;
+            }
+
+            // Check/test microphone before starting
+            if (microphoneState.status === 'denied' || microphoneState.status === 'unavailable') {
+                // Show the last error if we have one
+                if (microphoneState.lastError) {
+                    showMicrophoneError(microphoneState.lastError.info);
+                } else {
+                    showPermissionAlert('microphone');
+                }
+                return;
+            }
+
+            // If we haven't tested the mic yet or it's been a while, test it now
+            if (microphoneState.status === 'unknown' || microphoneState.status === 'error') {
+                const testResult = await testMicrophone(true);
+                if (!testResult.success) {
+                    showMicrophoneError(testResult.error);
+                    return;
+                }
+            }
+
+            // All checks passed, show the modal
             activeVoiceSection = section;
             currentTranscript = '';
-            document.getElementById('liveTranscript').textContent = 'Listening...';
-            document.getElementById('voiceModal').classList.remove('hidden');
+
+            const modal = document.getElementById('voiceModal');
+            const transcriptEl = document.getElementById('liveTranscript');
+            const titleEl = document.getElementById('voiceModalTitle');
+            const stopBtn = document.getElementById('stopVoiceBtn');
+
+            // Reset modal state
+            transcriptEl.textContent = 'Starting...';
+            transcriptEl.className = 'text-sm text-white/80 italic';
+            stopBtn.disabled = false;
 
             const sectionNames = {
                 weather: 'Site Conditions',
@@ -738,15 +1116,22 @@
                 safety: 'Safety',
                 visitors: 'Visitors'
             };
-            document.getElementById('voiceModalTitle').textContent = `Recording: ${sectionNames[section]}`;
+            titleEl.textContent = `Recording: ${sectionNames[section]}`;
 
+            modal.classList.remove('hidden');
             startRecording();
         }
 
         function startRecording() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
-                alert("Speech Recognition not supported. Please use Chrome or Safari.");
+                showMicrophoneError({
+                    title: 'Not Supported',
+                    message: 'Speech recognition not available.',
+                    recovery: 'Try Chrome or Safari browser.',
+                    icon: 'fa-comment-slash',
+                    severity: 'unavailable'
+                });
                 cancelVoice();
                 return;
             }
@@ -756,39 +1141,223 @@
             recognition.interimResults = true;
             recognition.lang = 'en-US';
 
+            const transcriptEl = document.getElementById('liveTranscript');
+            let noSpeechCount = 0;
+            let hasReceivedSpeech = false;
+
             recognition.onstart = () => {
                 isRecording = true;
+                transcriptEl.textContent = 'Listening...';
+                transcriptEl.className = 'text-sm text-white/80 italic';
+                console.log('[Speech] Recognition started');
+            };
+
+            recognition.onaudiostart = () => {
+                console.log('[Speech] Audio capture started');
+                transcriptEl.textContent = 'Listening... speak now';
+            };
+
+            recognition.onsoundstart = () => {
+                console.log('[Speech] Sound detected');
+            };
+
+            recognition.onspeechstart = () => {
+                console.log('[Speech] Speech detected');
+                hasReceivedSpeech = true;
             };
 
             recognition.onresult = (event) => {
                 let transcript = '';
+                let isFinal = false;
                 for (let i = 0; i < event.results.length; i++) {
                     transcript += event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        isFinal = true;
+                    }
                 }
                 currentTranscript = transcript;
-                document.getElementById('liveTranscript').textContent = transcript || 'Listening...';
+                transcriptEl.textContent = transcript || 'Listening...';
+                transcriptEl.className = 'text-sm text-white';
+                hasReceivedSpeech = true;
             };
 
             recognition.onend = () => {
+                console.log('[Speech] Recognition ended, isRecording:', isRecording);
+
+                // If we're still supposed to be recording, restart
+                if (isRecording && !hasReceivedSpeech && noSpeechCount < 3) {
+                    noSpeechCount++;
+                    console.log('[Speech] Restarting due to no speech, attempt:', noSpeechCount);
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        console.error('[Speech] Restart failed:', e);
+                    }
+                    return;
+                }
+
                 isRecording = false;
             };
 
             recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                isRecording = false;
+                console.error('[Speech] Recognition error:', event.error, event.message);
 
-                // Handle permission denied
-                if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+                const errorInfo = getMicrophoneErrorInfo(event.error);
+
+                // Update microphone state
+                microphoneState.lastError = {
+                    name: event.error,
+                    message: event.message,
+                    info: errorInfo,
+                    timestamp: new Date().toISOString()
+                };
+
+                // Handle based on severity
+                if (errorInfo.severity === 'denied') {
+                    isRecording = false;
+                    microphoneState.status = 'denied';
+                    localStorage.removeItem('fvp_mic_granted');
+                    localStorage.removeItem('fvp_mic_tested');
                     cancelVoice();
-                    showPermissionAlert('microphone');
-                } else if (event.error === 'no-speech') {
-                    // No speech detected - just ignore
+                    showMicrophoneError(errorInfo);
+                } else if (errorInfo.severity === 'info') {
+                    // Informational errors (no-speech, aborted) - show subtle feedback
+                    if (event.error === 'no-speech') {
+                        noSpeechCount++;
+                        if (noSpeechCount >= 3) {
+                            transcriptEl.textContent = 'No speech detected. Tap stop or try speaking louder.';
+                            transcriptEl.className = 'text-sm text-amber-400 italic';
+                        }
+                    }
+                    // Don't cancel - let user continue or stop manually
+                } else if (errorInfo.severity === 'error') {
+                    // Temporary errors - show toast and let user retry
+                    isRecording = false;
+                    showToast(errorInfo.message + ' ' + errorInfo.recovery, 'warning');
+                    transcriptEl.textContent = errorInfo.message;
+                    transcriptEl.className = 'text-sm text-red-400';
                 } else {
-                    showToast('Voice recording error. Please try again.');
+                    // Unknown/unavailable - show full error
+                    isRecording = false;
+                    cancelVoice();
+                    showMicrophoneError(errorInfo);
                 }
             };
 
-            recognition.start();
+            try {
+                recognition.start();
+            } catch (err) {
+                console.error('[Speech] Failed to start:', err);
+                isRecording = false;
+                showMicrophoneError({
+                    title: 'Start Failed',
+                    message: 'Could not start speech recognition.',
+                    recovery: 'Close and reopen the app, then try again.',
+                    icon: 'fa-exclamation-triangle',
+                    severity: 'error'
+                });
+                cancelVoice();
+            }
+        }
+
+        // Show detailed microphone error modal
+        function showMicrophoneError(errorInfo) {
+            const existing = document.querySelector('.mic-error-modal');
+            if (existing) existing.remove();
+
+            const severityColors = {
+                denied: { bg: 'bg-red-500/20', border: 'border-red-500/50', icon: 'text-red-400', text: 'text-red-300' },
+                unavailable: { bg: 'bg-amber-500/20', border: 'border-amber-500/50', icon: 'text-amber-400', text: 'text-amber-300' },
+                error: { bg: 'bg-orange-500/20', border: 'border-orange-500/50', icon: 'text-orange-400', text: 'text-orange-300' },
+                info: { bg: 'bg-blue-500/20', border: 'border-blue-500/50', icon: 'text-blue-400', text: 'text-blue-300' }
+            };
+            const colors = severityColors[errorInfo.severity] || severityColors.error;
+
+            const modal = document.createElement('div');
+            modal.className = 'mic-error-modal fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-slate-800 rounded-3xl p-6 max-w-sm w-full border ${colors.border} shadow-2xl">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-14 h-14 rounded-2xl ${colors.bg} flex items-center justify-center flex-shrink-0">
+                            <i class="fas ${errorInfo.icon} ${colors.icon} text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-white text-lg">${errorInfo.title}</h3>
+                            <p class="text-sm ${colors.text}">${errorInfo.message}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/50 rounded-2xl p-4 mb-5">
+                        <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
+                            <i class="fas fa-lightbulb mr-2"></i>How to fix
+                        </p>
+                        <p class="text-sm text-white/80">${errorInfo.recovery}</p>
+                        ${errorInfo.severity === 'denied' && isIOSSafari ? `
+                            <div class="mt-3 pt-3 border-t border-white/10">
+                                <p class="text-xs text-amber-300 flex items-center gap-2 mb-2">
+                                    <i class="fab fa-safari"></i> iOS Safari Steps:
+                                </p>
+                                <ol class="text-xs text-white/60 space-y-1 list-decimal list-inside">
+                                    <li>Tap the <strong class="text-amber-300">"aA"</strong> in address bar</li>
+                                    <li>Select <strong class="text-amber-300">"Website Settings"</strong></li>
+                                    <li>Set <strong class="text-amber-300">Microphone</strong> to Allow</li>
+                                    <li>Return here and try again</li>
+                                </ol>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="this.closest('.mic-error-modal').remove()" class="flex-1 p-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-colors">
+                            Close
+                        </button>
+                        ${errorInfo.severity === 'denied' ? `
+                            <button onclick="retryMicrophone()" class="flex-1 p-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-rotate"></i>Retry
+                            </button>
+                        ` : `
+                            <button onclick="retryMicrophone()" class="flex-1 p-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-redo"></i>Try Again
+                            </button>
+                        `}
+                    </div>
+
+                    ${microphoneState.lastError ? `
+                        <details class="mt-4">
+                            <summary class="text-xs text-white/30 cursor-pointer hover:text-white/50">Technical Details</summary>
+                            <pre class="mt-2 text-[10px] text-white/40 bg-black/30 rounded-lg p-2 overflow-x-auto">${JSON.stringify({
+                                error: microphoneState.lastError.name,
+                                message: microphoneState.lastError.message,
+                                time: microphoneState.lastError.timestamp,
+                                browser: navigator.userAgent.substring(0, 60)
+                            }, null, 2)}</pre>
+                        </details>
+                    ` : ''}
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Retry microphone after error
+        async function retryMicrophone() {
+            const modal = document.querySelector('.mic-error-modal');
+            if (modal) modal.remove();
+
+            // Reset state
+            microphoneState.status = 'unknown';
+            microphoneState.lastError = null;
+
+            // Show testing toast
+            showToast('Testing microphone...', 'info');
+
+            // Test the microphone
+            const result = await testMicrophone(true);
+
+            if (result.success) {
+                showToast('Microphone is working!', 'success');
+            } else {
+                // testMicrophone already showed the error UI
+            }
         }
 
         function stopVoice() {
@@ -1523,6 +2092,30 @@
             const onboarded = localStorage.getItem('fvp_onboarded') === 'true';
             if (isMobile && !onboarded) {
                 await checkPermissions();
+            }
+
+            // Test microphone to show accurate status
+            // Only do a quick check - don't show UI for this background test
+            const micGranted = localStorage.getItem('fvp_mic_granted') === 'true';
+            const lastTested = localStorage.getItem('fvp_mic_tested');
+            const needsFreshTest = !lastTested || (new Date() - new Date(lastTested)) > 5 * 60 * 1000;
+
+            if (micGranted && needsFreshTest) {
+                // Silently verify mic still works (no UI)
+                console.log('[Init] Verifying microphone permission...');
+                const result = await testMicrophone(false);
+                if (!result.success) {
+                    console.warn('[Init] Microphone verification failed:', result.error);
+                    // Update the UI to show the error state
+                    updateMicrophoneStatusUI(result.status, result.error);
+                } else {
+                    console.log('[Init] Microphone verified working');
+                    updateMicrophoneStatusUI('working');
+                }
+            } else if (micGranted) {
+                // Trust the cached result
+                microphoneState.status = 'working';
+                updateMicrophoneStatusUI('working');
             }
 
             // Fetch weather if needed (will silently fail if location not granted)
