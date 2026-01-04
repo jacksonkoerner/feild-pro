@@ -533,11 +533,14 @@
                 severity: 'denied'
             },
             'service-not-allowed': {
-                title: 'Service Blocked',
-                message: 'Speech recognition service is blocked.',
-                recovery: 'Check browser settings or try a different browser.',
-                icon: 'fa-cloud-slash',
-                severity: 'error'
+                title: isIOS ? 'Enable Siri or Dictation' : 'Service Blocked',
+                message: isIOS ? 'Speech recognition requires Siri or Dictation to be enabled on your iPhone.' : 'Speech recognition service is blocked.',
+                recovery: isIOS
+                    ? 'Go to Settings → Siri & Search → Enable "Listen for Hey Siri" OR Settings → General → Keyboard → Enable Dictation'
+                    : 'Check browser settings or try a different browser.',
+                icon: isIOS ? 'fa-microphone-lines' : 'fa-cloud-slash',
+                severity: 'error',
+                isIOSSpecific: isIOS
             },
             'audio-capture': {
                 title: 'Audio Capture Failed',
@@ -1292,7 +1295,22 @@
                             <i class="fas fa-lightbulb mr-2"></i>How to fix
                         </p>
                         <p class="text-sm text-white/80">${errorInfo.recovery}</p>
-                        ${errorInfo.severity === 'denied' && isIOSSafari ? `
+                        ${errorInfo.isIOSSpecific ? `
+                            <div class="mt-3 pt-3 border-t border-white/10">
+                                <p class="text-xs text-amber-300 flex items-center gap-2 mb-2">
+                                    <i class="fab fa-apple"></i> iPhone Settings Steps:
+                                </p>
+                                <ol class="text-xs text-white/60 space-y-2 list-decimal list-inside">
+                                    <li>Open <strong class="text-amber-300">Settings</strong> app</li>
+                                    <li>Go to <strong class="text-amber-300">Siri & Search</strong></li>
+                                    <li>Enable <strong class="text-emerald-400">"Listen for Hey Siri"</strong> or <strong class="text-emerald-400">"Press Side Button for Siri"</strong></li>
+                                    <li><strong>OR</strong> go to <strong class="text-amber-300">Settings → General → Keyboard</strong></li>
+                                    <li>Enable <strong class="text-emerald-400">"Enable Dictation"</strong></li>
+                                    <li>Return here and try again</li>
+                                </ol>
+                            </div>
+                        ` : ''}
+                        ${errorInfo.severity === 'denied' && isIOSSafari && !errorInfo.isIOSSpecific ? `
                             <div class="mt-3 pt-3 border-t border-white/10">
                                 <p class="text-xs text-amber-300 flex items-center gap-2 mb-2">
                                     <i class="fab fa-safari"></i> iOS Safari Steps:
