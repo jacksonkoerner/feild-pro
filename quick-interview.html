@@ -347,6 +347,64 @@
         </div>
     </div>
 
+    <!-- Permissions Setup Modal -->
+    <div id="permissionsModal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-3xl w-full max-w-sm p-6 border border-white/20">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-shield-check text-indigo-400 text-2xl"></i>
+                </div>
+                <p class="text-xl font-bold text-white">Enable Permissions</p>
+                <p class="text-sm text-white/50 mt-1">Required for voice recording & weather</p>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <!-- Microphone Permission -->
+                <div id="micPermissionRow" class="bg-white/5 rounded-xl p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-microphone text-purple-400"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-white text-sm">Microphone</p>
+                                <p id="micPermissionStatus" class="text-xs text-white/50">For voice notes</p>
+                            </div>
+                        </div>
+                        <button id="micPermissionBtn" onclick="requestMicrophonePermission()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-colors">
+                            Enable
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Location Permission -->
+                <div id="locPermissionRow" class="bg-white/5 rounded-xl p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                <i class="fas fa-location-dot text-emerald-400"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-white text-sm">Location</p>
+                                <p id="locPermissionStatus" class="text-xs text-white/50">For weather & GPS</p>
+                            </div>
+                        </div>
+                        <button id="locPermissionBtn" onclick="requestLocationPermission()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors">
+                            Enable
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="permissionsContinueBtn" onclick="closePermissionsModal()" class="w-full p-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors">
+                Continue
+            </button>
+            <button onclick="closePermissionsModal()" class="w-full p-3 text-white/50 hover:text-white text-sm font-medium transition-colors mt-2">
+                Skip for now
+            </button>
+        </div>
+    </div>
+
     <script>
         // ============ STATE ============
         let currentSection = null;
@@ -355,6 +413,156 @@
         let currentTranscript = '';
         let activeVoiceSection = null;
         let report = null;
+        let permissionsChecked = false;
+
+        // ============ PERMISSIONS ============
+        async function checkPermissions() {
+            const micStatus = await checkMicrophonePermission();
+            const locStatus = await checkLocationPermission();
+
+            updatePermissionUI('mic', micStatus);
+            updatePermissionUI('loc', locStatus);
+
+            // Show modal if either permission is not granted and not previously dismissed
+            const dismissed = localStorage.getItem('permissions_dismissed');
+            if (!dismissed && (micStatus !== 'granted' || locStatus !== 'granted')) {
+                document.getElementById('permissionsModal').classList.remove('hidden');
+            }
+
+            return { mic: micStatus, loc: locStatus };
+        }
+
+        async function checkMicrophonePermission() {
+            try {
+                // Try permissions API first (not always supported)
+                if (navigator.permissions) {
+                    const result = await navigator.permissions.query({ name: 'microphone' });
+                    return result.state; // 'granted', 'denied', or 'prompt'
+                }
+            } catch (e) {
+                // Permissions API not supported for microphone
+            }
+            return 'prompt'; // Default to prompt if we can't check
+        }
+
+        async function checkLocationPermission() {
+            try {
+                if (navigator.permissions) {
+                    const result = await navigator.permissions.query({ name: 'geolocation' });
+                    return result.state;
+                }
+            } catch (e) {}
+            return 'prompt';
+        }
+
+        async function requestMicrophonePermission() {
+            const btn = document.getElementById('micPermissionBtn');
+            const status = document.getElementById('micPermissionStatus');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                // Use getUserMedia to trigger the permission prompt
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Permission granted - stop the stream immediately
+                stream.getTracks().forEach(track => track.stop());
+
+                updatePermissionUI('mic', 'granted');
+                showToast('Microphone enabled!');
+            } catch (err) {
+                console.error('Microphone permission error:', err);
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    updatePermissionUI('mic', 'denied');
+                    showPermissionAlert('microphone');
+                } else {
+                    status.textContent = 'Not supported';
+                    btn.textContent = 'N/A';
+                    btn.disabled = true;
+                }
+            }
+        }
+
+        async function requestLocationPermission() {
+            const btn = document.getElementById('locPermissionBtn');
+            const status = document.getElementById('locPermissionStatus');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            try {
+                await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => resolve(pos),
+                        (err) => reject(err),
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                    );
+                });
+
+                updatePermissionUI('loc', 'granted');
+                showToast('Location enabled!');
+
+                // Also fetch weather now that we have permission
+                fetchWeather();
+            } catch (err) {
+                console.error('Location permission error:', err);
+                if (err.code === 1) { // PERMISSION_DENIED
+                    updatePermissionUI('loc', 'denied');
+                    showPermissionAlert('location');
+                } else {
+                    status.textContent = err.message || 'Error';
+                    btn.textContent = 'Retry';
+                    btn.disabled = false;
+                }
+            }
+        }
+
+        function updatePermissionUI(type, state) {
+            const btn = document.getElementById(`${type}PermissionBtn`);
+            const status = document.getElementById(`${type}PermissionStatus`);
+            const row = document.getElementById(`${type}PermissionRow`);
+
+            if (state === 'granted') {
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.className = 'px-4 py-2 bg-emerald-500 text-white text-xs font-bold rounded-lg cursor-default';
+                btn.disabled = true;
+                status.textContent = 'Enabled';
+                status.className = 'text-xs text-emerald-400';
+                row.className = 'bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4';
+            } else if (state === 'denied') {
+                btn.textContent = 'Denied';
+                btn.className = 'px-4 py-2 bg-red-500/50 text-white text-xs font-bold rounded-lg';
+                btn.disabled = true;
+                status.textContent = 'Blocked - check settings';
+                status.className = 'text-xs text-red-400';
+                row.className = 'bg-red-500/10 border border-red-500/30 rounded-xl p-4';
+            } else {
+                // Reset to default/prompt state
+                btn.textContent = 'Enable';
+                btn.disabled = false;
+                if (type === 'mic') {
+                    btn.className = 'px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-colors';
+                    status.textContent = 'For voice notes';
+                } else {
+                    btn.className = 'px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors';
+                    status.textContent = 'For weather & GPS';
+                }
+                status.className = 'text-xs text-white/50';
+                row.className = 'bg-white/5 rounded-xl p-4';
+            }
+        }
+
+        function closePermissionsModal() {
+            document.getElementById('permissionsModal').classList.add('hidden');
+            localStorage.setItem('permissions_dismissed', 'true');
+        }
+
+        function showPermissionsModal() {
+            // Reset dismissed state and show modal
+            localStorage.removeItem('permissions_dismissed');
+            checkPermissions();
+            document.getElementById('permissionsModal').classList.remove('hidden');
+        }
 
         // ============ STORAGE ============
         function getTodayKey() {
@@ -1165,6 +1373,12 @@
             // Mark as quick report type
             report.meta.reportType = 'quick';
             saveReport();
+
+            // Check permissions and show modal if needed (on mobile)
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                await checkPermissions();
+            }
 
             // Fetch weather if needed
             if (report.overview.weather.generalCondition === 'Syncing...' || report.overview.weather.generalCondition === '--') {
