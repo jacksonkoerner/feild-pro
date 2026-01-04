@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Setup - FieldVoice Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+        .pulse-ring::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            animation: pulse-ring 1.5s ease-out infinite;
+        }
+        .status-granted { color: #34d399; }
+        .status-denied { color: #f87171; }
+        .status-prompt { color: #fbbf24; }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col p-6">
+
+        <!-- Header -->
+        <header class="text-center pt-8 pb-6">
+            <div class="w-20 h-20 rounded-full bg-indigo-500/30 flex items-center justify-center mx-auto mb-4 animate-float">
+                <i class="fas fa-shield-check text-indigo-300 text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-black text-white mb-2">Quick Setup</h1>
+            <p class="text-white/60 text-sm">Enable permissions for the best experience</p>
+        </header>
+
+        <!-- Permission Cards -->
+        <main class="flex-1 space-y-4">
+
+            <!-- Microphone Permission Card -->
+            <div id="micCard" class="bg-white/10 backdrop-blur-sm rounded-3xl p-5 border border-white/10 transition-all duration-300">
+                <div class="flex items-start gap-4">
+                    <div id="micIconContainer" class="relative w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                        <i id="micIcon" class="fas fa-microphone text-purple-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-white text-lg">Microphone</h3>
+                        <p class="text-white/50 text-sm mt-1">Record voice notes hands-free while working on site</p>
+                        <div id="micStatus" class="flex items-center gap-2 mt-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span class="text-xs text-amber-400 font-medium">Not enabled</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="micBtn" onclick="requestMicrophonePermission()" class="w-full mt-4 p-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3" style="min-height: 56px;">
+                    <i class="fas fa-microphone"></i>
+                    <span>Enable Microphone for Voice Notes</span>
+                </button>
+            </div>
+
+            <!-- Location Permission Card -->
+            <div id="locCard" class="bg-white/10 backdrop-blur-sm rounded-3xl p-5 border border-white/10 transition-all duration-300">
+                <div class="flex items-start gap-4">
+                    <div id="locIconContainer" class="relative w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <i id="locIcon" class="fas fa-location-dot text-emerald-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-white text-lg">Location</h3>
+                        <p class="text-white/50 text-sm mt-1">Auto-fetch weather & GPS-tag your progress photos</p>
+                        <div id="locStatus" class="flex items-center gap-2 mt-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span class="text-xs text-amber-400 font-medium">Not enabled</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="locBtn" onclick="requestLocationPermission()" class="w-full mt-4 p-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3" style="min-height: 56px;">
+                    <i class="fas fa-location-dot"></i>
+                    <span>Enable Location for Weather & GPS</span>
+                </button>
+            </div>
+
+            <!-- iOS Safari Instructions (hidden by default) -->
+            <div id="iosInstructions" class="hidden bg-amber-500/10 backdrop-blur-sm rounded-3xl p-5 border border-amber-500/30">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                        <i class="fab fa-safari text-amber-400 text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-amber-300">Safari Settings Required</h3>
+                        <p class="text-xs text-amber-200/70">Permission was blocked - follow these steps:</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 mb-4">
+                    <div class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">1</span>
+                        <div class="flex-1">
+                            <p class="text-sm text-white/90">Tap the <strong class="text-amber-300">"aA"</strong> icon in the address bar</p>
+                            <p class="text-xs text-white/50 mt-0.5">(Bottom left corner of Safari)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">2</span>
+                        <p class="text-sm text-white/90">Tap <strong class="text-amber-300">"Website Settings"</strong></p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">3</span>
+                        <p id="iosStep3" class="text-sm text-white/90">Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong></p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">4</span>
+                        <p id="iosStep4" class="text-sm text-white/90">Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong></p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">5</span>
+                        <p class="text-sm text-white/90">Return here and tap <strong class="text-emerald-400">"Check Again"</strong></p>
+                    </div>
+                </div>
+
+                <button onclick="recheckPermissions()" class="w-full p-4 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i class="fas fa-rotate"></i>
+                    <span>Check Again</span>
+                </button>
+            </div>
+
+            <!-- Permission Status Summary -->
+            <div id="statusSummary" class="bg-white/5 rounded-2xl p-4 border border-white/10">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-white/50">Setup Progress</span>
+                    <span id="progressLabel" class="font-bold text-white">0 of 2 enabled</span>
+                </div>
+                <div class="mt-2 h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div id="progressBar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer Actions -->
+        <footer class="pt-6 pb-4 space-y-3">
+            <button id="continueBtn" onclick="continueToApp()" class="w-full p-5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-3xl shadow-lg shadow-indigo-500/30 transition-all hover:shadow-indigo-500/50 active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed" style="min-height: 64px;">
+                <span id="continueBtnText">Continue to App</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+            <button onclick="skipSetup()" class="w-full p-3 text-white/40 hover:text-white/70 text-sm font-medium transition-colors">
+                Skip for now (limited features)
+            </button>
+        </footer>
+
+    </div>
+
+    <script>
+        // ============ BROWSER DETECTION ============
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOSSafari = isIOS && isSafari;
+        const isAndroid = /Android/.test(navigator.userAgent);
+
+        // ============ PERMISSION STATE ============
+        let permissionState = {
+            microphone: 'prompt',
+            location: 'prompt'
+        };
+
+        // ============ CHECK IF FIRST VISIT ============
+        function isFirstVisit() {
+            return !localStorage.getItem('permissions_onboarding_completed');
+        }
+
+        // ============ PERMISSION STATUS CHECKING ============
+        async function checkCurrentPermissions() {
+            // Check microphone - use localStorage as source of truth for Safari
+            const micGranted = localStorage.getItem('mic_permission_granted') === 'true';
+            if (micGranted) {
+                permissionState.microphone = 'granted';
+            } else {
+                // Try Permissions API (limited Safari support)
+                try {
+                    if (navigator.permissions) {
+                        const result = await navigator.permissions.query({ name: 'microphone' });
+                        permissionState.microphone = result.state;
+                        if (result.state === 'granted') {
+                            localStorage.setItem('mic_permission_granted', 'true');
+                            localStorage.setItem('mic_permission_date', new Date().toISOString());
+                        }
+                    }
+                } catch (e) {
+                    // Permissions API not supported for microphone
+                    permissionState.microphone = 'prompt';
+                }
+            }
+
+            // Check location - use localStorage as source of truth for Safari
+            const locGranted = localStorage.getItem('loc_permission_granted') === 'true';
+            if (locGranted) {
+                permissionState.location = 'granted';
+            } else {
+                try {
+                    if (navigator.permissions) {
+                        const result = await navigator.permissions.query({ name: 'geolocation' });
+                        permissionState.location = result.state;
+                        if (result.state === 'granted') {
+                            localStorage.setItem('loc_permission_granted', 'true');
+                            localStorage.setItem('loc_permission_date', new Date().toISOString());
+                        }
+                    }
+                } catch (e) {
+                    permissionState.location = 'prompt';
+                }
+            }
+
+            updateAllUI();
+            return permissionState;
+        }
+
+        // ============ REQUEST MICROPHONE PERMISSION ============
+        async function requestMicrophonePermission() {
+            const btn = document.getElementById('micBtn');
+            const originalContent = btn.innerHTML;
+
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Requesting...</span>';
+
+            try {
+                // This triggers the iOS Safari permission prompt - MUST be from user gesture
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Permission granted - stop stream immediately (we just needed permission)
+                stream.getTracks().forEach(track => track.stop());
+
+                permissionState.microphone = 'granted';
+                localStorage.setItem('mic_permission_granted', 'true');
+                localStorage.setItem('mic_permission_date', new Date().toISOString());
+
+                updateMicrophoneUI('granted');
+                showToast('Microphone enabled!', 'success');
+            } catch (err) {
+                console.error('Microphone permission error:', err);
+
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    permissionState.microphone = 'denied';
+                    updateMicrophoneUI('denied');
+                    showIOSInstructions('microphone');
+                } else if (err.name === 'NotFoundError') {
+                    // No microphone available
+                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>No Microphone Found</span>';
+                    btn.className = btn.className.replace('bg-purple-600 hover:bg-purple-500', 'bg-gray-600 cursor-not-allowed');
+                } else {
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                    showToast('Error requesting permission', 'error');
+                }
+            }
+
+            updateProgress();
+        }
+
+        // ============ REQUEST LOCATION PERMISSION ============
+        async function requestLocationPermission() {
+            const btn = document.getElementById('locBtn');
+            const originalContent = btn.innerHTML;
+
+            // Show loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Requesting...</span>';
+
+            try {
+                await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => resolve(position),
+                        (err) => reject(err),
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                    );
+                });
+
+                permissionState.location = 'granted';
+                localStorage.setItem('loc_permission_granted', 'true');
+                localStorage.setItem('loc_permission_date', new Date().toISOString());
+
+                updateLocationUI('granted');
+                showToast('Location enabled!', 'success');
+            } catch (err) {
+                console.error('Location permission error:', err);
+
+                if (err.code === 1) { // PERMISSION_DENIED
+                    permissionState.location = 'denied';
+                    updateLocationUI('denied');
+                    showIOSInstructions('location');
+                } else if (err.code === 2) { // POSITION_UNAVAILABLE
+                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Location Unavailable</span>';
+                    btn.className = btn.className.replace('bg-emerald-600 hover:bg-emerald-500', 'bg-gray-600 cursor-not-allowed');
+                } else if (err.code === 3) { // TIMEOUT
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                    showToast('Location request timed out. Try again.', 'error');
+                }
+            }
+
+            updateProgress();
+        }
+
+        // ============ UPDATE UI FUNCTIONS ============
+        function updateMicrophoneUI(state) {
+            const card = document.getElementById('micCard');
+            const iconContainer = document.getElementById('micIconContainer');
+            const icon = document.getElementById('micIcon');
+            const status = document.getElementById('micStatus');
+            const btn = document.getElementById('micBtn');
+
+            if (state === 'granted') {
+                card.className = 'bg-emerald-500/10 backdrop-blur-sm rounded-3xl p-5 border border-emerald-500/30 transition-all duration-300';
+                iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0';
+                icon.className = 'fas fa-check text-emerald-400 text-xl';
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-400 font-medium">Enabled</span>';
+                btn.innerHTML = '<i class="fas fa-check-circle"></i><span>Microphone Enabled</span>';
+                btn.className = 'w-full mt-4 p-4 bg-emerald-500/30 text-emerald-300 font-bold rounded-2xl cursor-default flex items-center justify-center gap-3';
+                btn.disabled = true;
+                btn.style.minHeight = '56px';
+            } else if (state === 'denied') {
+                card.className = 'bg-red-500/10 backdrop-blur-sm rounded-3xl p-5 border border-red-500/30 transition-all duration-300';
+                iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center flex-shrink-0';
+                icon.className = 'fas fa-microphone-slash text-red-400 text-xl';
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span class="text-xs text-red-400 font-medium">Blocked - see instructions below</span>';
+                btn.innerHTML = '<i class="fas fa-lock"></i><span>Permission Blocked</span>';
+                btn.className = 'w-full mt-4 p-4 bg-red-500/30 text-red-300 font-bold rounded-2xl cursor-default flex items-center justify-center gap-3';
+                btn.disabled = true;
+                btn.style.minHeight = '56px';
+            }
+        }
+
+        function updateLocationUI(state) {
+            const card = document.getElementById('locCard');
+            const iconContainer = document.getElementById('locIconContainer');
+            const icon = document.getElementById('locIcon');
+            const status = document.getElementById('locStatus');
+            const btn = document.getElementById('locBtn');
+
+            if (state === 'granted') {
+                card.className = 'bg-emerald-500/10 backdrop-blur-sm rounded-3xl p-5 border border-emerald-500/30 transition-all duration-300';
+                iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0';
+                icon.className = 'fas fa-check text-emerald-400 text-xl';
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span class="text-xs text-emerald-400 font-medium">Enabled</span>';
+                btn.innerHTML = '<i class="fas fa-check-circle"></i><span>Location Enabled</span>';
+                btn.className = 'w-full mt-4 p-4 bg-emerald-500/30 text-emerald-300 font-bold rounded-2xl cursor-default flex items-center justify-center gap-3';
+                btn.disabled = true;
+                btn.style.minHeight = '56px';
+            } else if (state === 'denied') {
+                card.className = 'bg-red-500/10 backdrop-blur-sm rounded-3xl p-5 border border-red-500/30 transition-all duration-300';
+                iconContainer.className = 'relative w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center flex-shrink-0';
+                icon.className = 'fas fa-location-crosshairs text-red-400 text-xl';
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span class="text-xs text-red-400 font-medium">Blocked - see instructions below</span>';
+                btn.innerHTML = '<i class="fas fa-lock"></i><span>Permission Blocked</span>';
+                btn.className = 'w-full mt-4 p-4 bg-red-500/30 text-red-300 font-bold rounded-2xl cursor-default flex items-center justify-center gap-3';
+                btn.disabled = true;
+                btn.style.minHeight = '56px';
+            }
+        }
+
+        function updateAllUI() {
+            if (permissionState.microphone === 'granted') {
+                updateMicrophoneUI('granted');
+            } else if (permissionState.microphone === 'denied') {
+                updateMicrophoneUI('denied');
+            }
+
+            if (permissionState.location === 'granted') {
+                updateLocationUI('granted');
+            } else if (permissionState.location === 'denied') {
+                updateLocationUI('denied');
+            }
+
+            // Show iOS instructions if any permission is denied on iOS Safari
+            if (isIOSSafari && (permissionState.microphone === 'denied' || permissionState.location === 'denied')) {
+                showIOSInstructions();
+            }
+
+            updateProgress();
+        }
+
+        function updateProgress() {
+            let enabled = 0;
+            if (permissionState.microphone === 'granted') enabled++;
+            if (permissionState.location === 'granted') enabled++;
+
+            const percent = (enabled / 2) * 100;
+            document.getElementById('progressBar').style.width = `${percent}%`;
+            document.getElementById('progressLabel').textContent = `${enabled} of 2 enabled`;
+
+            // Update continue button
+            const continueBtn = document.getElementById('continueBtn');
+            const continueBtnText = document.getElementById('continueBtnText');
+
+            if (enabled === 2) {
+                continueBtn.className = 'w-full p-5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-3xl shadow-lg shadow-emerald-500/30 transition-all hover:shadow-emerald-500/50 active:scale-[0.98] flex items-center justify-center gap-3';
+                continueBtnText.textContent = "All Set! Continue";
+            } else if (enabled === 1) {
+                continueBtnText.textContent = "Continue (1 permission pending)";
+            } else {
+                continueBtnText.textContent = "Continue to App";
+            }
+        }
+
+        // ============ iOS INSTRUCTIONS ============
+        function showIOSInstructions(type) {
+            if (!isIOSSafari) return;
+
+            const instructions = document.getElementById('iosInstructions');
+            instructions.classList.remove('hidden');
+
+            // Update steps based on which permission was denied
+            const step3 = document.getElementById('iosStep3');
+            const step4 = document.getElementById('iosStep4');
+
+            if (permissionState.location === 'denied' && permissionState.microphone === 'denied') {
+                step3.innerHTML = 'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+                step4.innerHTML = 'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+                step4.parentElement.classList.remove('hidden');
+            } else if (permissionState.location === 'denied') {
+                step3.innerHTML = 'Set <strong class="text-amber-300">Location</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+                step4.parentElement.classList.add('hidden');
+            } else if (permissionState.microphone === 'denied') {
+                step3.innerHTML = 'Set <strong class="text-amber-300">Microphone</strong> to <strong class="text-emerald-400">"Allow"</strong>';
+                step4.parentElement.classList.add('hidden');
+            }
+
+            // Scroll to instructions
+            setTimeout(() => {
+                instructions.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+
+        async function recheckPermissions() {
+            const btn = event.target.closest('button');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Checking...</span>';
+            btn.disabled = true;
+
+            // Reset state and recheck
+            permissionState.microphone = 'prompt';
+            permissionState.location = 'prompt';
+
+            await checkCurrentPermissions();
+
+            // Hide instructions if permissions are now granted
+            if (permissionState.microphone !== 'denied' && permissionState.location !== 'denied') {
+                document.getElementById('iosInstructions').classList.add('hidden');
+            }
+
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+
+            // If still denied, show a message
+            if (permissionState.microphone === 'denied' || permissionState.location === 'denied') {
+                showToast('Permissions still blocked. Please check Safari settings.', 'warning');
+            } else {
+                showToast('Permissions updated!', 'success');
+            }
+        }
+
+        // ============ NAVIGATION ============
+        function continueToApp() {
+            localStorage.setItem('permissions_onboarding_completed', 'true');
+            localStorage.setItem('permissions_onboarding_date', new Date().toISOString());
+            window.location.href = 'index.html';
+        }
+
+        function skipSetup() {
+            localStorage.setItem('permissions_onboarding_completed', 'true');
+            localStorage.setItem('permissions_onboarding_skipped', 'true');
+            localStorage.setItem('permissions_onboarding_date', new Date().toISOString());
+            window.location.href = 'index.html';
+        }
+
+        // ============ TOAST NOTIFICATION ============
+        function showToast(message, type = 'success') {
+            const existing = document.querySelector('.toast-notification');
+            if (existing) existing.remove();
+
+            const colors = {
+                success: 'bg-emerald-600',
+                error: 'bg-red-600',
+                warning: 'bg-amber-600'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification fixed bottom-24 left-1/2 -translate-x-1/2 ${colors[type]} text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg z-50 flex items-center gap-2`;
+            toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'exclamation'}"></i>${message}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // ============ INITIALIZATION ============
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check if this is a return visit with permissions already granted
+            await checkCurrentPermissions();
+
+            // If both permissions are already granted, auto-continue after a brief delay
+            if (permissionState.microphone === 'granted' && permissionState.location === 'granted') {
+                document.getElementById('continueBtnText').textContent = 'All Set! Continuing...';
+                setTimeout(() => {
+                    continueToApp();
+                }, 1500);
+            }
+        });
+    </script>
+</body>
+</html>
