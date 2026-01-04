@@ -957,10 +957,44 @@
 
             for (const file of files) {
                 let gps = null;
+                let gpsError = null;
+
                 try {
-                    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
-                    gps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                } catch (e) {}
+                    if (!navigator.geolocation) {
+                        throw { code: -1, message: 'Geolocation not supported' };
+                    }
+
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject,
+                            { timeout: 5000, enableHighAccuracy: true, maximumAge: 60000 }
+                        );
+                    });
+
+                    gps = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy
+                    };
+
+                    // Update localStorage since location worked
+                    localStorage.setItem('fvp_loc_granted', 'true');
+
+                    console.log('Photo GPS captured:', gps);
+                } catch (err) {
+                    gpsError = err;
+                    console.warn('Photo GPS failed:', {
+                        code: err.code,
+                        message: err.message
+                    });
+
+                    // Handle permission denied - clear stale localStorage
+                    if (err.code === 1) {
+                        localStorage.removeItem('fvp_loc_granted');
+                        localStorage.removeItem('fvp_loc_date');
+                    }
+                }
 
                 const reader = new FileReader();
                 reader.onload = (ev) => {
@@ -971,10 +1005,24 @@
                         timestamp: new Date().toISOString(),
                         date: new Date().toLocaleDateString(),
                         time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                        gps: gps
+                        gps: gps,
+                        gpsError: gpsError ? { code: gpsError.code, message: gpsError.message } : null
                     });
                     saveReport();
                     renderSection('photos');
+
+                    // Show feedback about GPS status
+                    if (gps) {
+                        showToast('Photo added with GPS', 'success');
+                    } else if (gpsError?.code === 1) {
+                        showToast('Photo added (GPS blocked - check settings)', 'warning');
+                    } else if (gpsError?.code === 2) {
+                        showToast('Photo added (GPS unavailable)', 'warning');
+                    } else if (gpsError?.code === 3) {
+                        showToast('Photo added (GPS timed out)', 'warning');
+                    } else {
+                        showToast('Photo added (no GPS)', 'info');
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -1163,15 +1211,29 @@
         }
 
         // ============ UTILITIES ============
-        function showToast(message) {
+        function showToast(message, type = 'success') {
             const existing = document.querySelector('.toast-msg');
             if (existing) existing.remove();
 
+            const colors = {
+                success: 'bg-emerald-600',
+                warning: 'bg-amber-500',
+                error: 'bg-red-500',
+                info: 'bg-indigo-500'
+            };
+
+            const icons = {
+                success: 'fa-check',
+                warning: 'fa-exclamation-triangle',
+                error: 'fa-times-circle',
+                info: 'fa-info-circle'
+            };
+
             const toast = document.createElement('div');
-            toast.className = 'toast-msg fixed bottom-24 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg z-50';
-            toast.textContent = message;
+            toast.className = `toast-msg fixed bottom-24 left-1/2 -translate-x-1/2 ${colors[type] || colors.success} text-white px-6 py-3 rounded-full font-bold text-sm shadow-lg z-50 flex items-center gap-2`;
+            toast.innerHTML = `<i class="fas ${icons[type] || icons.success}"></i>${message}`;
             document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2000);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         function showPermissionAlert(type) {

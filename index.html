@@ -343,17 +343,37 @@
         // ============ WEATHER ============
         async function syncWeather() {
             const syncIcon = document.getElementById('syncIcon');
+            const syncBtn = document.getElementById('syncWeatherBtn');
             syncIcon.classList.add('fa-spin');
 
             try {
+                // Check if geolocation is available
+                if (!navigator.geolocation) {
+                    throw { code: -1, message: 'Geolocation not supported' };
+                }
+
                 const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+                    navigator.geolocation.getCurrentPosition(
+                        resolve,
+                        reject,
+                        { timeout: 10000, enableHighAccuracy: false, maximumAge: 300000 } // Cache for 5 min
+                    );
                 });
 
+                // Location success - update localStorage
+                localStorage.setItem('fvp_loc_granted', 'true');
+
                 const { latitude, longitude } = position.coords;
+                console.log('Weather sync - got location:', { latitude, longitude });
+
                 const response = await fetch(
                     `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&temperature_unit=fahrenheit&precipitation_unit=inch`
                 );
+
+                if (!response.ok) {
+                    throw new Error(`Weather API error: ${response.status}`);
+                }
+
                 const data = await response.json();
 
                 const weatherCodes = {
@@ -399,10 +419,47 @@
                 }
             } catch (error) {
                 console.error('Weather sync failed:', error);
-                document.getElementById('weatherCondition').textContent = 'Sync failed';
+
+                // Handle different error types
+                if (error.code === 1) {
+                    // PERMISSION_DENIED
+                    localStorage.removeItem('fvp_loc_granted');
+                    localStorage.removeItem('fvp_loc_date');
+                    document.getElementById('weatherCondition').textContent = 'Location blocked';
+                    document.getElementById('weatherIcon').className = 'fas fa-location-crosshairs text-4xl text-red-400';
+
+                    // Show a helpful message
+                    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                        syncBtn.innerHTML = '<i id="syncIcon" class="fas fa-exclamation-triangle text-[10px] text-red-400"></i><span class="text-red-300">Fix in Settings</span>';
+                        syncBtn.onclick = () => window.location.href = 'permissions.html';
+                    } else {
+                        syncBtn.innerHTML = '<i id="syncIcon" class="fas fa-lock text-[10px] text-red-400"></i><span class="text-red-300">Enable Location</span>';
+                        syncBtn.onclick = () => window.location.href = 'permissions.html';
+                    }
+                } else if (error.code === 2) {
+                    // POSITION_UNAVAILABLE
+                    document.getElementById('weatherCondition').textContent = 'GPS unavailable';
+                    document.getElementById('weatherIcon').className = 'fas fa-satellite-dish text-4xl text-amber-400';
+                } else if (error.code === 3) {
+                    // TIMEOUT
+                    document.getElementById('weatherCondition').textContent = 'Location timeout';
+                    document.getElementById('weatherIcon').className = 'fas fa-clock text-4xl text-amber-400';
+                } else if (error.code === -1) {
+                    // Not supported
+                    document.getElementById('weatherCondition').textContent = 'Not supported';
+                    document.getElementById('weatherIcon').className = 'fas fa-times-circle text-4xl text-gray-400';
+                } else {
+                    // API or network error
+                    document.getElementById('weatherCondition').textContent = 'Sync failed';
+                    document.getElementById('weatherIcon').className = 'fas fa-exclamation-triangle text-4xl text-amber-400';
+                }
             }
 
-            syncIcon.classList.remove('fa-spin');
+            // Re-query the sync icon in case it was replaced
+            const updatedSyncIcon = document.getElementById('syncIcon');
+            if (updatedSyncIcon) {
+                updatedSyncIcon.classList.remove('fa-spin');
+            }
         }
 
         // ============ UI UPDATES ============
