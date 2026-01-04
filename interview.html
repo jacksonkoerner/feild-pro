@@ -476,6 +476,99 @@
         const isAndroid = /Android/.test(navigator.userAgent);
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+        // ============ MICROPHONE ERROR DEFINITIONS ============
+        const MIC_ERRORS = {
+            'not-allowed': {
+                title: 'Microphone Blocked',
+                message: 'Microphone access was denied.',
+                recovery: 'Enable microphone in browser settings.',
+                icon: 'fa-microphone-slash',
+                severity: 'denied'
+            },
+            'service-not-allowed': {
+                title: isIOS ? 'Enable Siri or Dictation' : 'Service Blocked',
+                message: isIOS ? 'Speech recognition requires Siri or Dictation enabled.' : 'Speech recognition service is blocked.',
+                recovery: isIOS
+                    ? 'Go to Settings → Siri & Search → Enable Siri, OR Settings → General → Keyboard → Enable Dictation'
+                    : 'Check browser settings or try a different browser.',
+                icon: 'fa-microphone-lines',
+                severity: 'error',
+                isIOSSpecific: isIOS
+            },
+            'audio-capture': {
+                title: 'Audio Capture Failed',
+                message: 'Could not capture audio from microphone.',
+                recovery: 'Check microphone connection and try again.',
+                icon: 'fa-volume-xmark',
+                severity: 'error'
+            },
+            'network': {
+                title: 'Network Error',
+                message: 'Speech recognition needs internet.',
+                recovery: 'Check your internet connection.',
+                icon: 'fa-wifi-slash',
+                severity: 'error'
+            },
+            'no-speech': {
+                title: 'No Speech Detected',
+                message: 'Didn\'t hear anything.',
+                recovery: 'Speak clearly into the microphone.',
+                icon: 'fa-volume-off',
+                severity: 'info'
+            }
+        };
+
+        function getMicErrorInfo(errorName) {
+            return MIC_ERRORS[errorName] || {
+                title: 'Microphone Error',
+                message: 'Voice recording encountered an error.',
+                recovery: 'Please try again.',
+                icon: 'fa-exclamation-circle',
+                severity: 'error'
+            };
+        }
+
+        function showMicError(errorInfo) {
+            const modal = document.createElement('div');
+            modal.className = 'mic-error-modal fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-slate-800 rounded-3xl p-6 max-w-sm w-full border border-orange-500/50 shadow-2xl">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center">
+                            <i class="fas ${errorInfo.icon} text-orange-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-white text-lg">${errorInfo.title}</h3>
+                            <p class="text-sm text-orange-300">${errorInfo.message}</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/50 rounded-2xl p-4 mb-5">
+                        <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">
+                            <i class="fas fa-lightbulb mr-2"></i>How to fix
+                        </p>
+                        <p class="text-sm text-white/80">${errorInfo.recovery}</p>
+                        ${errorInfo.isIOSSpecific ? `
+                            <div class="mt-3 pt-3 border-t border-white/10">
+                                <p class="text-xs text-amber-300 flex items-center gap-2 mb-2">
+                                    <i class="fab fa-apple"></i> iPhone Steps:
+                                </p>
+                                <ol class="text-xs text-white/60 space-y-1 list-decimal list-inside">
+                                    <li>Open <strong class="text-amber-300">Settings</strong></li>
+                                    <li>Go to <strong class="text-amber-300">Siri & Search</strong></li>
+                                    <li>Enable <strong class="text-emerald-400">"Listen for Hey Siri"</strong></li>
+                                    <li>OR: Settings → General → Keyboard → Enable Dictation</li>
+                                </ol>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <button onclick="this.closest('.mic-error-modal').remove()" class="w-full p-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl">
+                        Got it
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
         // ============ STORAGE ============
         function getTodayKey() {
             return `fieldvoice_report_${new Date().toISOString().split('T')[0]}`;
@@ -647,17 +740,23 @@
             };
 
             recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
+                console.error('Speech recognition error:', event.error, event.message);
                 isRecording = false;
 
-                // Handle permission denied
-                if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+                const errorInfo = getMicErrorInfo(event.error);
+
+                if (errorInfo.severity === 'denied') {
                     cancelVoice();
-                    showPermissionAlert('microphone');
-                } else if (event.error === 'no-speech') {
-                    // No speech detected - just ignore
+                    showMicError(errorInfo);
+                } else if (errorInfo.severity === 'info') {
+                    // Informational (no-speech) - show subtle feedback
+                    if (event.error === 'no-speech') {
+                        document.getElementById('liveTranscript').textContent = 'No speech detected. Try speaking louder.';
+                    }
                 } else {
-                    showToast('Voice recording error. Please try again.');
+                    // Show detailed error modal for other errors
+                    cancelVoice();
+                    showMicError(errorInfo);
                 }
             };
 
